@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PDFPageProxy } from "pdfjs-dist/types/src/display/api";
 import { cn } from "@/lib/cn";
+import { PlusIcon } from "@/components/nav/icons";
 import type { ViewerLeaf } from "./Viewer";
 
 /**
@@ -16,19 +17,24 @@ export function ThumbnailRail({
   onJump,
   getPage,
   ready,
+  onInsertAfter,
 }: {
   leaves: ViewerLeaf[];
   activeIndex: number;
   onJump: (index: number) => void;
   getPage: (pageNumber: number) => Promise<PDFPageProxy>;
   ready: boolean;
+  /** null inserts before the first page. */
+  onInsertAfter: (leafId: string | null) => void;
 }) {
   return (
     <nav
       aria-label="Pages"
       className="hidden w-[var(--thumb-rail-width)] shrink-0 overflow-y-auto border-r border-hairline bg-surface p-2 lg:block"
     >
-      <ol className="flex flex-col gap-2">
+      <ol className="flex flex-col gap-1">
+        <InsertHere onInsert={() => onInsertAfter(null)} first />
+
         {leaves.map((leaf, index) => {
           const pageNumber = index + 1;
           const active = pageNumber === activeIndex;
@@ -58,6 +64,12 @@ export function ThumbnailRail({
                   {pageNumber}
                 </span>
               </button>
+
+              {/*
+                The insert affordance. This is the product's core promise made
+                visible: your page, between the teacher's pages.
+              */}
+              <InsertHere onInsert={() => onInsertAfter(leaf.id)} />
             </li>
           );
         })}
@@ -139,6 +151,54 @@ function NoteThumb({ label }: { label: string | null }) {
           {label}
         </span>
       ) : null}
+    </div>
+  );
+}
+
+/** A hairline that becomes a + on hover, between any two thumbnails. */
+function InsertHere({
+  onInsert,
+  first = false,
+}: {
+  onInsert: () => void;
+  first?: boolean;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      className="group relative flex h-4 items-center justify-center"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button
+        type="button"
+        onClick={onInsert}
+        aria-label={first ? "Insert a page at the start" : "Insert a page here"}
+        title="Insert a page here"
+        className="flex w-full items-center gap-1 px-1"
+      >
+        <span
+          className={cn(
+            "h-px flex-1 transition-colors duration-[120ms]",
+            hovered ? "bg-accent" : "bg-transparent",
+          )}
+        />
+        <span
+          className={cn(
+            "grid size-4 place-items-center rounded-full transition-opacity duration-[120ms]",
+            hovered ? "bg-accent text-accent-on opacity-100" : "opacity-0",
+          )}
+        >
+          <PlusIcon className="size-3" />
+        </span>
+        <span
+          className={cn(
+            "h-px flex-1 transition-colors duration-[120ms]",
+            hovered ? "bg-accent" : "bg-transparent",
+          )}
+        />
+      </button>
     </div>
   );
 }

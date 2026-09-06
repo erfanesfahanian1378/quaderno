@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { usePdfDocument, usePageCache } from "./usePdfDocument";
 import { useRenderWindow } from "./useRenderWindow";
 import { PdfPage } from "./PdfPage";
 import { ThumbnailRail } from "./ThumbnailRail";
 import { ViewerHeader } from "./ViewerHeader";
 import { NotePageView } from "./NotePageView";
+import { TemplatePicker, type TemplateKey } from "./TemplatePicker";
 import { Banner } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
@@ -53,6 +55,7 @@ export function Viewer({
   document: ViewerDocument;
   leaves: ViewerLeaf[];
 }) {
+  const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -107,6 +110,30 @@ export function Viewer({
   const [inkColor, setInkColor] = useState<InkKey>("ink-black");
   const [inkWidth, setInkWidth] = useState<InkWidthKey>("medium");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+  // Insert-a-page: the rail asks, the picker chooses, the server places it.
+  const [insertAfter, setInsertAfter] = useState<{
+    leafId: string | null;
+  } | null>(null);
+
+  const insertPage = useCallback(
+    async (template: TemplateKey) => {
+      const target = insertAfter;
+      setInsertAfter(null);
+      if (!target) return;
+
+      const result = await api.post(`/api/documents/${doc.id}/leaves`, {
+        kind: "NOTE_PAGE",
+        afterLeafId: target.leafId,
+        template,
+      });
+
+      // The page list is server-rendered, so a refresh is what shows the new
+      // page in the scroll flow.
+      if (result.ok) router.refresh();
+    },
+    [doc.id, insertAfter, router],
+  );
 
   // Page geometries, keyed by leaf, so selection and ink can convert
   // coordinates without walking the DOM.
@@ -280,6 +307,7 @@ export function Viewer({
             onJump={jumpTo}
             getPage={getPage}
             ready={pdf.status === "ready"}
+            onInsertAfter={(leafId) => setInsertAfter({ leafId })}
           />
         ) : null}
 
@@ -375,6 +403,13 @@ export function Viewer({
           ) : null}
         </div>
       </div>
+
+      {insertAfter ? (
+        <TemplatePicker
+          onPick={(template) => void insertPage(template)}
+          onCancel={() => setInsertAfter(null)}
+        />
+      ) : null}
 
       {selection && (tool === "select" || tool === "highlight") ? (
         <SelectionPopover
