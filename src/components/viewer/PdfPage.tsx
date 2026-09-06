@@ -29,6 +29,8 @@ export type PdfPageProps = {
   onGeometry?: (geometry: PageGeometry) => void;
   children?: (geometry: PageGeometry) => React.ReactNode;
   label?: string;
+  /** Marked on the page element so a DOM Range can be traced back to a leaf. */
+  leafId?: string;
 };
 
 export function PdfPage({
@@ -40,6 +42,7 @@ export function PdfPage({
   onGeometry,
   children,
   label,
+  leafId,
 }: PdfPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
@@ -170,6 +173,7 @@ export function PdfPage({
     <div className="flex flex-col items-center gap-2">
       <div
         data-page={pageNumber}
+        data-leaf-id={leafId}
         className={cn(
           "page-sheet relative overflow-hidden",
           !active && "bg-surface",

@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { ChevronIcon } from "@/components/nav/icons";
+import { SyncIndicator } from "./SyncIndicator";
+import type { SyncState } from "@/lib/outbox/queue";
 import type { ViewerDocument } from "./Viewer";
 
 export function ViewerHeader({
+  syncState,
   document: doc,
   pageNumber,
   pageCount,
@@ -16,6 +19,7 @@ export function ViewerHeader({
   railOpen,
   onToggleRail,
 }: {
+  syncState: SyncState;
   document: ViewerDocument;
   pageNumber: number;
   pageCount: number;
@@ -46,6 +50,8 @@ export function ViewerHeader({
           ) : null}
         </p>
       </div>
+
+      <SyncIndicator state={syncState} />
 
       <button
         type="button"

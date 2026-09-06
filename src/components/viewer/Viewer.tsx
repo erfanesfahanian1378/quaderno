@@ -10,6 +10,20 @@ import { NotePageView } from "./NotePageView";
 import { Banner } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
+import { useAnnotations } from "./annotations/store";
+import { AnnotationLayer } from "./annotations/AnnotationLayer";
+import { AnnotationToolbar, type Tool } from "./annotations/Toolbar";
+import { SelectionPopover } from "./annotations/SelectionPopover";
+import { useTextSelection } from "./annotations/useTextSelection";
+import { useInkCapture } from "./ink/useInkCapture";
+import {
+  HIGHLIGHT_DEFAULT_LABELS,
+  INK_WIDTHS,
+  type HighlightKey,
+  type InkKey,
+  type InkWidthKey,
+} from "@/lib/tokens";
+import type { PageGeometry } from "./coords";
 
 export type ViewerLeaf = {
   id: string;
@@ -82,9 +96,85 @@ export function Viewer({
   const pdf = usePdfDocument(sourceUrl);
   const getPage = usePageCache(pdf.status === "ready" ? pdf.document : null);
 
-  const { visible, isInWindow } = useRenderWindow(
+  const { visible, isInWindow } = useRenderWindow(scrollRef, leaves.length);
+
+  // --- Annotations --------------------------------------------------------
+
+  const annotations = useAnnotations(doc.id);
+  const [tool, setTool] = useState<Tool>("select");
+  const [highlightColor, setHighlightColor] =
+    useState<HighlightKey>("hl-yellow");
+  const [inkColor, setInkColor] = useState<InkKey>("ink-black");
+  const [inkWidth, setInkWidth] = useState<InkWidthKey>("medium");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+  // Page geometries, keyed by leaf, so selection and ink can convert
+  // coordinates without walking the DOM.
+  const geometries = useRef(new Map<string, PageGeometry>());
+  const geometryFor = useCallback(
+    (leafId: string) => geometries.current.get(leafId) ?? null,
+    [],
+  );
+
+  const { selection, clear: clearSelection } = useTextSelection(
     scrollRef,
-    leaves.length,
+    geometryFor,
+    tool === "select" || tool === "highlight",
+  );
+
+  const addTextMark = useCallback(
+    (
+      kind: "HIGHLIGHT" | "UNDERLINE" | "STRIKETHROUGH",
+      color: HighlightKey,
+    ) => {
+      if (!selection) return;
+
+      annotations.create({
+        kind,
+        leafId: selection.leafId,
+        color,
+        opacity: kind === "HIGHLIGHT" ? 0.4 : 1,
+        zIndex: 0,
+        geometry: { quads: selection.quads },
+        quotedText: selection.quotedText,
+      });
+
+      clearSelection();
+    },
+    [annotations, clearSelection, selection],
+  );
+
+  const ink = useInkCapture({
+    enabled: tool === "pen",
+    width: INK_WIDTHS[inkWidth],
+    onStrokeComplete: (leafId, stroke) => {
+      // One annotation per stroke, not per gesture group — undo then removes
+      // one stroke, which is what people expect from a pen.
+      annotations.create({
+        kind: "INK",
+        leafId,
+        color: inkColor,
+        opacity: 1,
+        zIndex: 1,
+        geometry: { strokes: [stroke] },
+      });
+    },
+  });
+
+  const onAnnotationClick = useCallback(
+    (annotation: { clientId: string }) => {
+      if (tool === "eraser") {
+        const found = annotations.all.find(
+          (item) => item.clientId === annotation.clientId,
+        );
+        // Stroke eraser: the whole intersecting annotation goes. Pixel eraser
+        // is explicitly deferred (ANNOTATION_ENGINE.md §4).
+        if (found) annotations.remove(found);
+        return;
+      }
+      setSelectedClientId(annotation.clientId);
+    },
+    [annotations, tool],
   );
 
   // Fit-width: measure the container and derive a scale from A4's 595pt width.
@@ -130,6 +220,9 @@ export function Viewer({
         jumpTo(1);
       } else if (event.key === "End") {
         jumpTo(leaves.length);
+      } else if ((event.metaKey || event.ctrlKey) && event.key === "z") {
+        event.preventDefault();
+        annotations.undo();
       } else if ((event.metaKey || event.ctrlKey) && event.key === "0") {
         event.preventDefault();
         setFitWidth(true);
@@ -146,7 +239,7 @@ export function Viewer({
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [jumpTo, leaves.length, visible]);
+  }, [annotations, jumpTo, leaves.length, visible]);
 
   // Tell the server it was opened. A beacon, so it survives the page closing.
   useEffect(() => {
@@ -161,6 +254,7 @@ export function Viewer({
       className="flex h-dvh flex-col bg-canvas"
     >
       <ViewerHeader
+        syncState={annotations.sync}
         document={doc}
         pageNumber={visible}
         pageCount={leaves.length}
@@ -232,7 +326,40 @@ export function Viewer({
                       rotation={leaf.rotation}
                       active={isInWindow(pageNumber)}
                       label={leaf.label ?? String(pageNumber)}
-                    />
+                      leafId={leaf.id}
+                      onGeometry={(geometry) =>
+                        geometries.current.set(leaf.id, geometry)
+                      }
+                    >
+                      {(geometry) => (
+                        <>
+                          <AnnotationLayer
+                            annotations={annotations.forLeaf(leaf.id)}
+                            geometry={geometry}
+                            onSelect={onAnnotationClick}
+                            selectedClientId={selectedClientId}
+                          />
+
+                          {/* The ink capture surface, above the marks. */}
+                          {tool === "pen" ? (
+                            <svg
+                              className="absolute inset-0 size-full touch-none"
+                              style={{ color: `var(--${inkColor})` }}
+                              onPointerDown={(event) =>
+                                ink.handlers.onPointerDown(
+                                  event,
+                                  leaf.id,
+                                  geometry,
+                                )
+                              }
+                              onPointerMove={ink.handlers.onPointerMove}
+                              onPointerUp={ink.handlers.onPointerUp}
+                              onPointerCancel={ink.handlers.onPointerCancel}
+                            />
+                          ) : null}
+                        </>
+                      )}
+                    </PdfPage>
                   ) : (
                     <PagePlaceholder scale={zoom} label={String(pageNumber)} />
                   )}
@@ -248,6 +375,35 @@ export function Viewer({
           ) : null}
         </div>
       </div>
+
+      {selection && (tool === "select" || tool === "highlight") ? (
+        <SelectionPopover
+          selection={selection}
+          labels={HIGHLIGHT_DEFAULT_LABELS}
+          onHighlight={(color) => {
+            setHighlightColor(color);
+            addTextMark("HIGHLIGHT", color);
+          }}
+          onUnderline={() => addTextMark("UNDERLINE", highlightColor)}
+          onStrikethrough={() => addTextMark("STRIKETHROUGH", highlightColor)}
+          onComment={() => addTextMark("HIGHLIGHT", highlightColor)}
+          onDismiss={clearSelection}
+        />
+      ) : null}
+
+      <AnnotationToolbar
+        tool={tool}
+        onToolChange={setTool}
+        highlightColor={highlightColor}
+        onHighlightColor={setHighlightColor}
+        inkColor={inkColor}
+        onInkColor={setInkColor}
+        inkWidth={inkWidth}
+        onInkWidth={setInkWidth}
+        onUndo={annotations.undo}
+        canUndo={annotations.canUndo}
+        labels={HIGHLIGHT_DEFAULT_LABELS}
+      />
 
       {/* Page-number pill, fading after a scroll settles. */}
       <div
