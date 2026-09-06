@@ -86,8 +86,13 @@ export function wrap<TParams = unknown>(handler: Handler<TParams>) {
 
       if (isApiError(error)) {
         // 4xx is the client's problem and is expected traffic; 5xx is ours.
-        const level = error.status >= 500 ? "error" : "info";
-        log[level]({ code: error.code, err: error }, error.message);
+        // The stack is only attached for 5xx — a wrong password is not a bug,
+        // and a stack trace per failed login buries the real errors.
+        if (error.status >= 500) {
+          log.error({ code: error.code, err: error }, error.message);
+        } else {
+          log.info({ code: error.code, status: error.status }, error.message);
+        }
         return errorResponse(error, requestId);
       }
 

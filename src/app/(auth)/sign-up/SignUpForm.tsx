@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { Banner, Button, Input } from "@/components/ui";
-import { handler } from "@/lib/api-client";
+import { api, handler } from "@/lib/api-client";
 
 export function SignUpForm() {
   const router = useRouter();
@@ -20,29 +19,21 @@ export function SignUpForm() {
     const email = String(form.get("email") ?? "");
     const password = String(form.get("password") ?? "");
 
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        name: String(form.get("name") ?? "") || undefined,
-      }),
+    const result = await api.post("/api/auth/register", {
+      email,
+      password,
+      name: String(form.get("name") ?? "") || undefined,
     });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
-      setError(body?.error?.message ?? "Could not create the account.");
+    if (!result.ok) {
+      setError(result.error.message);
       setLoading(false);
       return;
     }
 
-    // Sign them straight in. Email verification is a reminder, not a gate —
-    // making someone check their inbox before they can try the app is how you
-    // lose them at the door.
-    await signIn("credentials", { email, password, redirect: false });
+    // The register endpoint already established the session — email
+    // verification is a reminder, not a gate. Making someone check their inbox
+    // before they can try the app is how you lose them at the door.
     router.push("/onboarding");
     router.refresh();
   }

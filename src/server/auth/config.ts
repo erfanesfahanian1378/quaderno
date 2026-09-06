@@ -1,10 +1,6 @@
 import NextAuth, { type DefaultSession } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "../repositories/client";
-import * as users from "../repositories/user";
-import { signInSchema } from "../validation/auth";
-import { burnTimeLikeAVerify, verifyPassword } from "./password";
 import { logger } from "../logger";
 
 declare module "next-auth" {
@@ -35,39 +31,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verifyRequest: "/verify",
   },
   trustHost: true,
-  providers: [
-    Credentials({
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(raw) {
-        const parsed = signInSchema.safeParse(raw);
-        if (!parsed.success) {
-          // Still burn the time — a malformed body must not be measurably
-          // faster than a wrong password.
-          await burnTimeLikeAVerify();
-          return null;
-        }
+  /*
+   * No Credentials provider here on purpose. Auth.js v5 refuses to combine
+   * `Credentials` with `strategy: "database"` and demands JWTs, but PHASE-02
+   * requires revocable sessions (a password reset must invalidate every other
+   * session), which a stateless token cannot give us.
+   *
+   * Password sign-in therefore issues a database session directly in
+   * `src/server/auth/session.ts`, writing exactly the row and cookie the
+   * Prisma adapter would. `auth()` below still reads it, so everything else in
+   * this file — including any OAuth provider added later — is unaffected.
+   */
+  providers: [],
 
-        const user = await users.findByEmailWithHash(parsed.data.email);
-
-        if (!user?.passwordHash) {
-          // No such account, or an OAuth-only account. Same cost, same answer.
-          await burnTimeLikeAVerify();
-          return null;
-        }
-
-        const ok = await verifyPassword(
-          parsed.data.password,
-          user.passwordHash,
-        );
-        if (!ok) return null;
-
-        return { id: user.id, email: user.email };
-      },
-    }),
-  ],
   callbacks: {
     session({ session, user }) {
       // The adapter gives us the user row; surface only the id.

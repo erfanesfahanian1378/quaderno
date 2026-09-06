@@ -18,8 +18,7 @@ export type ApiFailure = {
 };
 
 export type ApiResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: ApiFailure };
+  { ok: true; data: T } | { ok: false; error: ApiFailure };
 
 async function request<T>(
   method: string,
@@ -53,13 +52,23 @@ async function request<T>(
   }
 
   const payload = (await response.json().catch(() => null)) as
-    | { error?: { code?: ErrorCode; message?: string; details?: Record<string, unknown> } }
+    | {
+        error?: {
+          code?: ErrorCode;
+          message?: string;
+          details?: Record<string, unknown>;
+        };
+      }
     | T
     | null;
 
   if (!response.ok) {
     const wrapped = payload as {
-      error?: { code?: ErrorCode; message?: string; details?: Record<string, unknown> };
+      error?: {
+        code?: ErrorCode;
+        message?: string;
+        details?: Record<string, unknown>;
+      };
     } | null;
 
     const retryAfter = response.headers.get("Retry-After");

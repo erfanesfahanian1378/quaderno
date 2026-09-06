@@ -33,22 +33,25 @@ const REDACT = [
 
 function create(): Logger {
   const level = process.env.LOG_LEVEL ?? "info";
-  const isDev = process.env.NODE_ENV !== "production";
 
+  /*
+   * No pino-pretty transport here, deliberately.
+   *
+   * pino's transports run in a worker thread, and Next bundles the server in a
+   * way that tears that worker down — every log line then throws
+   * "the worker has exited" from inside the route wrapper, which turns a
+   * logged 4xx into a crashed request. Losing colour in the terminal is a fair
+   * trade for logging that cannot take down a handler.
+   *
+   * For readable local logs, pipe instead:  pnpm dev | pnpm exec pino-pretty
+   * The worker process (worker/index.ts) is a plain Node process and does use
+   * the transport.
+   */
   return pino({
     level,
     redact: { paths: REDACT, censor: "[redacted]" },
     base: { service: "quaderno" },
     timestamp: pino.stdTimeFunctions.isoTime,
-    // pino-pretty is a devDependency; never reach for it in production.
-    ...(isDev && process.env.VITEST !== "true"
-      ? {
-          transport: {
-            target: "pino-pretty",
-            options: { colorize: true, translateTime: "HH:MM:ss.l" },
-          },
-        }
-      : {}),
   });
 }
 

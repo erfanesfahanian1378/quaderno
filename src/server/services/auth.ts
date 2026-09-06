@@ -3,10 +3,16 @@ import { conflict, notFound, validationFailed } from "../errors";
 import { logger } from "../logger";
 import * as users from "../repositories/user";
 import * as audit from "../repositories/audit";
-import { hashPassword } from "../auth/password";
+import {
+  burnTimeLikeAVerify,
+  hashPassword,
+  verifyPassword,
+} from "../auth/password";
+import { createSession, currentSessionToken } from "../auth/session";
 import { mailer, resetMail, verificationMail } from "../auth/mailer";
-import { enforce } from "../auth/rate-limit";
-import type { RegisterInput } from "../validation/auth";
+import { clear, enforce } from "../auth/rate-limit";
+import type { RegisterInput, SignInInput } from "../validation/auth";
+import { unauthenticated } from "../errors";
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
@@ -177,6 +183,94 @@ export async function resetPassword(
   await audit.record({
     userId: user.id,
     action: "auth.password.reset",
+    meta: { sessionsRevoked: revoked },
+  });
+}
+
+/**
+ * Password sign-in.
+ *
+ * Every failure path costs the same and says the same thing. "No such
+ * account", "OAuth-only account" and "wrong password" are indistinguishable
+ * from the outside, in both the response and the time it takes — otherwise
+ * the endpoint enumerates the user table.
+ */
+export async function signInWithPassword(
+  input: SignInInput,
+  meta: { ip: string },
+): Promise<{ userId: string }> {
+  // Two buckets: one per account so an attacker cannot lock everyone out by
+  // hammering one address, one per IP so they cannot spread across accounts.
+  await enforce("loginIp", meta.ip);
+  await enforce("loginAccount", input.email);
+
+  const user = await users.findByEmailWithHash(input.email);
+
+  if (!user?.passwordHash) {
+    await burnTimeLikeAVerify();
+    await audit.record({
+      action: "auth.login.failed",
+      ip: meta.ip,
+      meta: { email: input.email, reason: "no-password" },
+    });
+    throw unauthenticated("Email or password is incorrect");
+  }
+
+  if (!(await verifyPassword(input.password, user.passwordHash))) {
+    await audit.record({
+      userId: user.id,
+      action: "auth.login.failed",
+      ip: meta.ip,
+    });
+    throw unauthenticated("Email or password is incorrect");
+  }
+
+  await createSession(user.id);
+  // A correct password clears the account bucket, so a legitimate user who
+  // fumbled twice is not still throttled afterwards.
+  await clear("loginAccount", input.email);
+
+  await audit.record({
+    userId: user.id,
+    action: "auth.login.success",
+    ip: meta.ip,
+  });
+
+  return { userId: user.id };
+}
+
+/** Signs the user in immediately after registering. */
+export async function establishSession(userId: string): Promise<void> {
+  await createSession(userId);
+}
+
+export async function changePassword(
+  ctx: { userId: string },
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const user = await users.findById(ctx);
+  if (!user) throw notFound("Account");
+
+  const withHash = await users.findByEmailWithHash(user.email);
+  if (!withHash?.passwordHash) throw notFound("Account");
+
+  if (!(await verifyPassword(currentPassword, withHash.passwordHash))) {
+    throw validationFailed("That is not your current password", {
+      field: "currentPassword",
+    });
+  }
+
+  assertPasswordStrength(newPassword, user.email);
+  await users.setPasswordHash(ctx, await hashPassword(newPassword));
+
+  // Keep the session doing the changing; kill every other one.
+  const keep = await currentSessionToken();
+  const revoked = await users.revokeAllSessions(ctx, keep);
+
+  await audit.record({
+    userId: ctx.userId,
+    action: "auth.password.changed",
     meta: { sessionsRevoked: revoked },
   });
 }

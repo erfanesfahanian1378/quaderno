@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { Banner, Button, Input } from "@/components/ui";
-import { handler } from "@/lib/api-client";
+import { api, handler } from "@/lib/api-client";
 
 export function SignInForm({
   next,
@@ -24,16 +23,20 @@ export function SignInForm({
     setError(null);
 
     const form = new FormData(event.currentTarget);
-    const result = await signIn("credentials", {
+    const result = await api.post("/api/auth/sign-in", {
       email: String(form.get("email") ?? ""),
       password: String(form.get("password") ?? ""),
-      redirect: false,
     });
 
-    if (result?.error) {
+    if (!result.ok) {
       // One message for every failure mode. "No such account" and "wrong
-      // password" must not be distinguishable.
-      setError("Email or password is incorrect.");
+      // password" must not be distinguishable — except for a rate limit,
+      // which the user needs to be able to act on.
+      setError(
+        result.error.code === "RATE_LIMITED"
+          ? result.error.message
+          : "Email or password is incorrect.",
+      );
       setLoading(false);
       return;
     }
