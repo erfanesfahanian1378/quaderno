@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -113,16 +114,12 @@ export async function convertWithLibreOffice(
 ): Promise<ConversionOutcome> {
   const log: string[] = [];
 
-  const binary = (await isAvailable("soffice"))
-    ? "soffice"
-    : (await isAvailable("libreoffice"))
-      ? "libreoffice"
-      : null;
+  const binary = await findSoffice();
 
   if (!binary) {
     throw new ConversionError(
       "LibreOffice is not installed on this server, so Office files cannot be converted yet. The original file is still saved and downloadable.",
-      ["soffice not found on PATH"],
+      ["soffice not found on PATH or in the usual macOS app bundle"],
     );
   }
 
@@ -168,6 +165,35 @@ export async function convertWithLibreOffice(
       );
     }
   });
+}
+
+/**
+ * Locates LibreOffice.
+ *
+ * The macOS cask does NOT put `soffice` on PATH — it installs an app bundle
+ * and leaves the binary at
+ * `/Applications/LibreOffice.app/Contents/MacOS/soffice`. A plain
+ * `which soffice` therefore reports "not installed" on a machine where it is
+ * perfectly well installed, and the user gets told to install something they
+ * already have. The Linux images do put it on PATH, so both are checked.
+ */
+async function findSoffice(): Promise<string | null> {
+  for (const candidate of ["soffice", "libreoffice"]) {
+    if (await isAvailable(candidate)) return candidate;
+  }
+
+  const bundled = [
+    "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+    `${process.env.HOME ?? ""}/Applications/LibreOffice.app/Contents/MacOS/soffice`,
+    "/opt/homebrew/bin/soffice",
+    "/usr/local/bin/soffice",
+  ];
+
+  for (const path of bundled) {
+    if (path && existsSync(path)) return path;
+  }
+
+  return null;
 }
 
 /**
