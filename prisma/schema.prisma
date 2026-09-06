@@ -515,6 +515,37 @@ model WeeklyGoal {
 // Infrastructure
 // ---------------------------------------------------------------------------
 
+/// Postgres token bucket for rate limiting. No Redis in this system
+/// (ARCHITECTURE.md §1); this table is why we do not need one.
+model RateLimit {
+  bucket          String
+  key             String
+  count           Int      @default(0)
+  windowStartedAt DateTime @default(now())
+
+  @@id([bucket, key])
+  @@index([windowStartedAt])
+}
+
+/// A queued export. The browser does most exports (ANNOTATION_ENGINE §8);
+/// this row exists for the server-side fallback past 150 leaves.
+model Export {
+  id         String   @id @default(cuid())
+  userId     String
+  documentId String
+
+  flavour    String // flattened | layered | notes-only
+  status     String   @default("PENDING") // PENDING | RUNNING | READY | FAILED
+  storageKey String?
+  error      String?  @db.Text
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([userId, createdAt])
+  @@index([documentId])
+}
+
 /// Audit trail for destructive or security-relevant actions.
 model AuditLog {
   id        String   @id @default(cuid())

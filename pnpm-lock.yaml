@@ -8,18 +8,27 @@ importers:
 
   .:
     dependencies:
+      '@auth/prisma-adapter':
+        specifier: ^2.11.3
+        version: 2.11.3(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))
       '@aws-sdk/client-s3':
         specifier: ^3.699.0
         version: 3.1127.0
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.699.0
         version: 3.1127.0
+      '@node-rs/argon2':
+        specifier: ^2.2.0
+        version: 2.2.0
       '@prisma/client':
         specifier: ^6.1.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
       next:
         specifier: ^15.1.3
         version: 15.5.25(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next-auth:
+        specifier: 5.0.0-beta.32
+        version: 5.0.0-beta.32(next@15.5.25(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
       pg-boss:
         specifier: ^10.1.5
         version: 10.4.2
@@ -129,6 +138,25 @@ packages:
 
   '@asamuzakjp/css-color@3.2.0':
     resolution: {integrity: sha512-K1A6z8tS3XsmCMM86xoWdn7Fkdn9m6RSVtocUrJYIwZnFVkng/PvkEoWtOWmP+Scc6saYWHWZYbndEEXxl24jw==}
+
+  '@auth/core@0.41.3':
+    resolution: {integrity: sha512-sJ3JMHHkXMD3aOjopv7mOBTO1Ocw4b0fAEXJBz6k7YHLpYQI6C40jCUPc5fNvUKxXRXNE1/sRISA15UrwWJBTw==}
+    peerDependencies:
+      '@simplewebauthn/browser': ^9.0.1
+      '@simplewebauthn/server': ^9.0.2
+      nodemailer: ^7.0.7 || ^8.0.5
+    peerDependenciesMeta:
+      '@simplewebauthn/browser':
+        optional: true
+      '@simplewebauthn/server':
+        optional: true
+      nodemailer:
+        optional: true
+
+  '@auth/prisma-adapter@2.11.3':
+    resolution: {integrity: sha512-jZbpVAO6PTc9zNtdTWc0RLWG8qap4iMc54/3oWaWbuKdj92wHxzPrs3HivWB2mB9975GPW0l3YM/wFUWiUlTlg==}
+    peerDependencies:
+      '@prisma/client': '>=2.26.0 || >=3 || >=4 || >=5 || >=6'
 
   '@aws-sdk/checksums@3.1000.29':
     resolution: {integrity: sha512-Dtu0gr4dnATZAPwEYbpCsG+MpLM7OAliy2gTepEFQwl1vZ6DL3QMH2FveMa3HLvPsOdhJsPRB3KtxVhph9T75A==}
@@ -914,6 +942,88 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@node-rs/argon2-android-arm-eabi@2.2.0':
+    resolution: {integrity: sha512-xbJvpiTlYqKxq5XRkhQlZNiIRE4fZPFJdB46jOPED8pGkxgn1erMMdVCPWp1RcOxuChaiEOl8DVu5sVVu9ApVw==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [android]
+
+  '@node-rs/argon2-android-arm64@2.2.0':
+    resolution: {integrity: sha512-i47xYwh8GNKc0yNwFQz7Hqsx6pBZJsJ1hqRXmtThOXbjl6HoVlX7oGBpqq4s+sBrU8ba0kubAqJ8fBjtp4iwHQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [android]
+
+  '@node-rs/argon2-darwin-arm64@2.2.0':
+    resolution: {integrity: sha512-Zet1ekAQPUczRQ6cmFCpQyScg9346SnzYt7CRWPd4GCs8CBOOK34PrtbazdReHcBxUgSDnhMhDWnO0jmtJ15sQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@node-rs/argon2-darwin-x64@2.2.0':
+    resolution: {integrity: sha512-JeOpmf5glG9MTS+qt6VZ3tUUZdQ3Kll/e18yUeBmDRSKQDN0AJs5ruzqV08DOclVUqXG0IF2DVhbE825RN96yA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@node-rs/argon2-freebsd-x64@2.2.0':
+    resolution: {integrity: sha512-w7R4yoAcOlZctOz7EHhf2hFHSuRyJcphMZAcyKRJ3Sxu8APjqifLepOkuXC1Gat08DYFTI51RMPj7sMU36KcGA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@node-rs/argon2-linux-arm-gnueabihf@2.2.0':
+    resolution: {integrity: sha512-H5uGMLmj2vor3YDAX+LIyw4yGXEESXvr5voyRK+AuxdIvZ/B7mxma06IOmb+4n9t/MQ1Lbwu7gkyWt8f3wyrNA==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [linux]
+
+  '@node-rs/argon2-linux-arm64-gnu@2.2.0':
+    resolution: {integrity: sha512-P0A+tUMI7NwImaK7txceScl7d18GAw4hkt27NChZIZdD55w7qZ81LFcA4cEP9L6kgdubItlAqcD/qBR5XMCd5Q==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@node-rs/argon2-linux-arm64-musl@2.2.0':
+    resolution: {integrity: sha512-i5s9msRRy+m/yul9M+1OF7fN/VqhJ+4IalPn1rhyrE3gwNcgfoT+A0DuAqR5gtXmDb3zx+QWIjtHCLhvkvu23g==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@node-rs/argon2-linux-x64-gnu@2.2.0':
+    resolution: {integrity: sha512-R6oaRA2Iesbsexe06Aeydbdz617WD2lE6yDcb4t5T+0iGM1VyVpI+nNpcAtkcXyO6Dgmuhh+3RKbm/F2CSBt1w==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@node-rs/argon2-linux-x64-musl@2.2.0':
+    resolution: {integrity: sha512-Paql63t7XusSTYMSfEQ0ex5edubWX/OhvLRYsC+oQxWiC+3x2WcYWp+fWVwdlAm+eJRsIOj6w3iG3yDy94ZL8A==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@node-rs/argon2-win32-arm64-msvc@2.2.0':
+    resolution: {integrity: sha512-ysl+KaEeYVBKY3/J4w3VKD7KVHATpsJ/TMtxjmVyX8KEhwemH2qmlyZcVQb5fPy+Yk18g7cHu7LYuDffROo8pw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@node-rs/argon2-win32-ia32-msvc@2.2.0':
+    resolution: {integrity: sha512-2Hp0RtOgM8jxcTsrtYlIkfk0PQXFnENyqvEuFTNCHMFSWhV8D/Ds2OrWSmjWTGQhLNWNp2JrX4XKsZM0+PB3NA==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+
+  '@node-rs/argon2-win32-x64-msvc@2.2.0':
+    resolution: {integrity: sha512-cfcNjVqLpgOU/9l2mLOFduuXTxvGH5qoV38AhcOz9oQaC7GDmsFbAgcuizVNuOtpSyQr5HoQez3f2X2jYgGMsg==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
+  '@node-rs/argon2@2.2.0':
+    resolution: {integrity: sha512-iBItNNiiim2nzhmUY4uxA4nYaNBatj8Ae/YnlwQzRYRFiBysm2scfsyjO+ktH+7VHl1O24UwFd2EeihV4IJzxw==}
+    engines: {node: '>= 10'}
+
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
     engines: {node: '>= 8'}
@@ -929,6 +1039,9 @@ packages:
   '@nolyfill/is-core-module@1.0.39':
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
+
+  '@panva/hkdf@1.2.1':
+    resolution: {integrity: sha512-6oclG6Y3PiDFcoyk8srjLfVKyMfVCKJ27JwNPViuXziFpmdz+MZnZN/aKY0JGXgYuO/VghU0jcOAZgWXZ1Dmrw==}
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
@@ -2435,6 +2548,9 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
+  jose@6.2.12:
+    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
+
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -2675,6 +2791,22 @@ packages:
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
+  next-auth@5.0.0-beta.32:
+    resolution: {integrity: sha512-CGlChIEWZ6LltNVxrE5yiySMID+Idpmry47JYA5lLwgD8Sx02a8M65VL0TWVz9nbnOioS/tCW/rP/0+mE7Qp4Q==}
+    peerDependencies:
+      '@simplewebauthn/browser': ^9.0.1
+      '@simplewebauthn/server': ^9.0.2
+      next: ^14.0.0-0 || ^15.0.0 || ^16.0.0
+      nodemailer: ^7.0.7 || ^8.0.5
+      react: ^18.2.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@simplewebauthn/browser':
+        optional: true
+      '@simplewebauthn/server':
+        optional: true
+      nodemailer:
+        optional: true
+
   next@15.5.25:
     resolution: {integrity: sha512-OMWNulIIqKM2ykvC2qMjIt0IoavB4UB2SCs4iXJ6z6847FvyH8jBmBWcvrF5iuhTu8Przh20Fo/aoszIdqx4PA==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
@@ -2718,6 +2850,9 @@ packages:
     resolution: {integrity: sha512-zxlE2yvSWZWmHcNdT3+5zV2lrCogeE9YOklHrR3dFjqutq5wO7GFDYLFDRXLsYnJzwvy/im9fYoxePvS0VTW0w==}
     engines: {node: '>=18'}
     hasBin: true
+
+  oauth4webapi@3.8.8:
+    resolution: {integrity: sha512-8N28E+a/oxfXWBgOMt+ZP/JUf/XR+IFbvkAEPP3gznXOMv9BpAAwiIj0TFNz3tGTPc0ZQ8zmWBNgN1nAys0gng==}
 
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
@@ -2931,6 +3066,14 @@ packages:
   postgres-interval@1.2.0:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
+
+  preact-render-to-string@6.5.11:
+    resolution: {integrity: sha512-ubnauqoGczeGISiOh6RjX0/cdaF8v/oDXIjO85XALCQjwQP+SB4RDXXtvZ6yTYSjG+PC1QRP2AhPgCEsM2EvUw==}
+    peerDependencies:
+      preact: '>=10'
+
+  preact@10.24.3:
+    resolution: {integrity: sha512-Z2dPnBnMUfyQfSQ+GBdsGa16hz35YmLmtTLhM169uW944hYL6xzTYkJjC07j+Wosz733pMWx0fgON3JNw1jJQA==}
 
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
@@ -3577,6 +3720,23 @@ snapshots:
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
       lru-cache: 10.4.3
+
+  '@auth/core@0.41.3':
+    dependencies:
+      '@panva/hkdf': 1.2.1
+      jose: 6.2.12
+      oauth4webapi: 3.8.8
+      preact: 10.24.3
+      preact-render-to-string: 6.5.11(preact@10.24.3)
+
+  '@auth/prisma-adapter@2.11.3(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))':
+    dependencies:
+      '@auth/core': 0.41.3
+      '@prisma/client': 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+    transitivePeerDependencies:
+      - '@simplewebauthn/browser'
+      - '@simplewebauthn/server'
+      - nodemailer
 
   '@aws-sdk/checksums@3.1000.29':
     dependencies:
@@ -4282,6 +4442,61 @@ snapshots:
   '@next/swc-win32-x64-msvc@15.5.25':
     optional: true
 
+  '@node-rs/argon2-android-arm-eabi@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-android-arm64@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-darwin-arm64@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-darwin-x64@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-freebsd-x64@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-linux-arm-gnueabihf@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-linux-arm64-gnu@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-linux-arm64-musl@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-linux-x64-gnu@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-linux-x64-musl@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-win32-arm64-msvc@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-win32-ia32-msvc@2.2.0':
+    optional: true
+
+  '@node-rs/argon2-win32-x64-msvc@2.2.0':
+    optional: true
+
+  '@node-rs/argon2@2.2.0':
+    optionalDependencies:
+      '@node-rs/argon2-android-arm-eabi': 2.2.0
+      '@node-rs/argon2-android-arm64': 2.2.0
+      '@node-rs/argon2-darwin-arm64': 2.2.0
+      '@node-rs/argon2-darwin-x64': 2.2.0
+      '@node-rs/argon2-freebsd-x64': 2.2.0
+      '@node-rs/argon2-linux-arm-gnueabihf': 2.2.0
+      '@node-rs/argon2-linux-arm64-gnu': 2.2.0
+      '@node-rs/argon2-linux-arm64-musl': 2.2.0
+      '@node-rs/argon2-linux-x64-gnu': 2.2.0
+      '@node-rs/argon2-linux-x64-musl': 2.2.0
+      '@node-rs/argon2-win32-arm64-msvc': 2.2.0
+      '@node-rs/argon2-win32-ia32-msvc': 2.2.0
+      '@node-rs/argon2-win32-x64-msvc': 2.2.0
+
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
       '@nodelib/fs.stat': 2.0.5
@@ -4295,6 +4510,8 @@ snapshots:
       fastq: 1.20.3
 
   '@nolyfill/is-core-module@1.0.39': {}
+
+  '@panva/hkdf@1.2.1': {}
 
   '@pinojs/redact@0.4.0': {}
 
@@ -5948,6 +6165,8 @@ snapshots:
 
   jiti@2.7.0: {}
 
+  jose@6.2.12: {}
+
   joycon@3.1.1: {}
 
   js-tokens@4.0.0: {}
@@ -6170,6 +6389,12 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
+  next-auth@5.0.0-beta.32(next@15.5.25(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8):
+    dependencies:
+      '@auth/core': 0.41.3
+      next: 15.5.25(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react: 19.2.8
+
   next@15.5.25(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@next/env': 15.5.25
@@ -6217,6 +6442,8 @@ snapshots:
       citty: 0.2.2
       pathe: 2.0.3
       tinyexec: 1.3.1
+
+  oauth4webapi@3.8.8: {}
 
   object-assign@4.1.1: {}
 
@@ -6450,6 +6677,12 @@ snapshots:
   postgres-interval@1.2.0:
     dependencies:
       xtend: 4.0.2
+
+  preact-render-to-string@6.5.11(preact@10.24.3):
+    dependencies:
+      preact: 10.24.3
+
+  preact@10.24.3: {}
 
   prelude-ls@1.2.1: {}
 
