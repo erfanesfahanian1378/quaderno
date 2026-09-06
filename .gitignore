@@ -44,3 +44,6 @@ prisma/*.db-journal
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Generated build artefact, not source.
+bundle-report.json

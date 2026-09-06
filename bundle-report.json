@@ -1,25 +1,300 @@
 {
-  "generatedAt": "2026-09-06T19:46:49.010Z",
+  "generatedAt": "2026-09-06T22:47:49.688Z",
   "rows": [
     {
-      "route": "/page",
+      "route": "/(viewer)/d/[documentId]/page",
+      "files": 6,
+      "gzipBytes": 123763
+    },
+    {
+      "route": "/(app)/library/page",
+      "files": 6,
+      "gzipBytes": 111647
+    },
+    {
+      "route": "/(app)/layout",
+      "files": 6,
+      "gzipBytes": 110499
+    },
+    {
+      "route": "/(auth)/sign-up/page",
+      "files": 6,
+      "gzipBytes": 109004
+    },
+    {
+      "route": "/(auth)/sign-in/page",
+      "files": 6,
+      "gzipBytes": 108982
+    },
+    {
+      "route": "/(auth)/forgot/page",
+      "files": 6,
+      "gzipBytes": 108837
+    },
+    {
+      "route": "/(app)/search/page",
+      "files": 6,
+      "gzipBytes": 108401
+    },
+    {
+      "route": "/(app)/settings/page",
       "files": 5,
-      "gzipBytes": 106109
+      "gzipBytes": 107418
+    },
+    {
+      "route": "/(app)/onboarding/page",
+      "files": 5,
+      "gzipBytes": 106620
+    },
+    {
+      "route": "/page",
+      "files": 6,
+      "gzipBytes": 106508
+    },
+    {
+      "route": "/(auth)/layout",
+      "files": 6,
+      "gzipBytes": 106508
+    },
+    {
+      "route": "/(auth)/verify/page",
+      "files": 6,
+      "gzipBytes": 106508
+    },
+    {
+      "route": "/(app)/dashboard/page",
+      "files": 6,
+      "gzipBytes": 106501
+    },
+    {
+      "route": "/(app)/study/page",
+      "files": 5,
+      "gzipBytes": 106096
+    },
+    {
+      "route": "/(auth)/reset/page",
+      "files": 5,
+      "gzipBytes": 105534
+    },
+    {
+      "route": "/(app)/stats/page",
+      "files": 5,
+      "gzipBytes": 104697
     },
     {
       "route": "/dev/tokens/page",
       "files": 5,
-      "gzipBytes": 104323
+      "gzipBytes": 104631
     },
     {
       "route": "/_not-found/page",
       "files": 5,
-      "gzipBytes": 103653
+      "gzipBytes": 103958
     },
     {
       "route": "/layout",
       "files": 5,
-      "gzipBytes": 103013
+      "gzipBytes": 103319
+    },
+    {
+      "route": "/api/health/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/auth/password/reset/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/auth/register/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/auth/password/forgot/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/auth/[...nextauth]/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/auth/sign-in/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/auth/sign-out/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/class-sessions/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/comments/[commentId]/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/[documentId]/annotations/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/[documentId]/annotations/batch/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/class-sessions/[classSessionId]/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/[documentId]/comments/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/[documentId]/leaves/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/[documentId]/opened/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/[documentId]/original-url/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/[documentId]/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/[documentId]/source-url/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/documents/[documentId]/export/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/languages/[languageId]/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/leaves/[leafId]/move/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/languages/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/leaves/[leafId]/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/search/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/heatmap/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/note-pages/[notePageId]/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/me/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/streak/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/timer/discard/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/timer/heartbeat/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/timer/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/goals/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/week/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/timer/stop/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/timer/start/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/uploads/complete/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/uploads/presign/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/api/study/sessions/route",
+      "files": 5,
+      "gzipBytes": 103198
+    },
+    {
+      "route": "/(viewer)/layout",
+      "files": 5,
+      "gzipBytes": 103198
     }
   ]
 }
