@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { ChevronIcon } from "@/components/nav/icons";
+import { ExportMenu } from "./ExportMenu";
 import { SyncIndicator } from "./SyncIndicator";
 import type { SyncState } from "@/lib/outbox/queue";
 import type { ViewerDocument } from "./Viewer";
@@ -52,6 +53,8 @@ export function ViewerHeader({
       </div>
 
       <SyncIndicator state={syncState} />
+
+      <ExportMenu documentId={doc.id} title={doc.title} />
 
       <button
         type="button"
