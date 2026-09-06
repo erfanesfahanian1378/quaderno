@@ -1,0 +1,530 @@
+// Quaderno — canonical data model.
+// Every doc in /docs refers back to this file. If a spec and this file
+// disagree, THIS FILE WINS and the spec must be corrected.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity  (Auth.js v5 / @auth/prisma-adapter compatible)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  passwordHash  String? // argon2id; null when the user is OAuth-only
+
+  locale       String @default("en")
+  timeZone     String @default("Europe/Rome")
+  weekStartsOn Int    @default(1) // 1 = Monday, ISO-8601
+  theme        String @default("system") // system | light | dark
+
+  storageQuotaBytes BigInt @default(2147483648) // 2 GiB default
+  storageUsedBytes  BigInt @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  accounts        Account[]
+  sessions        Session[]
+  languages       Language[]
+  courses         Course[]
+  classSessions   ClassSession[]
+  scheduledClasses ScheduledClass[]
+  documents       Document[]
+  annotations     Annotation[]
+  comments        Comment[]
+  studySessions   StudySession[]
+  weeklyGoals     WeeklyGoal[]
+  dayAggregates   StudyDayAggregate[]
+
+  @@index([deletedAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Learning structure
+// ---------------------------------------------------------------------------
+
+model Language {
+  id     String @id @default(cuid())
+  userId String
+
+  code       String // ISO 639-1: "it", "fr"
+  name       String // display name, user-editable: "Italiano"
+  accentKey  String @default("accent-1") // design-token key, never a hex value
+  cefrLevel  String? // A1 A2 B1 B2 C1 C2
+  position   Int     @default(0)
+
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courses          Course[]
+  classSessions    ClassSession[]
+  scheduledClasses ScheduledClass[]
+  documents        Document[]
+  studySessions    StudySession[]
+  weeklyGoals      WeeklyGoal[]
+  dayAggregates    StudyDayAggregate[]
+
+  @@unique([userId, code])
+  @@index([userId, archivedAt])
+}
+
+/// Optional grouping inside a language: "B1 evening course", "Self-study".
+/// Every language gets an implicit default course on creation.
+model Course {
+  id         String @id @default(cuid())
+  userId     String
+  languageId String
+
+  name        String
+  teacher     String?
+  institution String?
+  isDefault   Boolean @default(false)
+
+  startsOn   DateTime? @db.Date
+  endsOn     DateTime? @db.Date
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language         Language         @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  classSessions    ClassSession[]
+  scheduledClasses ScheduledClass[]
+  documents        Document[]
+
+  @@index([userId, languageId, archivedAt])
+}
+
+/// A recurring class slot. Expanded into ClassSession rows lazily.
+model ScheduledClass {
+  id         String  @id @default(cuid())
+  userId     String
+  languageId String
+  courseId   String?
+
+  title       String
+  rrule       String // RFC 5545 RRULE, e.g. "FREQ=WEEKLY;BYDAY=TU,TH"
+  startTime   String // "18:30" local wall time
+  durationMin Int
+  timeZone    String // IANA zone the wall time is interpreted in
+  location    String?
+  startsOn    DateTime  @db.Date
+  endsOn      DateTime? @db.Date
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language      Language       @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  course        Course?        @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  classSessions ClassSession[]
+
+  @@index([userId, active])
+}
+
+/// One concrete lesson on one date. Materials and study time hang off it.
+model ClassSession {
+  id               String  @id @default(cuid())
+  userId           String
+  languageId       String
+  courseId         String?
+  scheduledClassId String?
+
+  date     DateTime @db.Date
+  title    String
+  topics   String[] @default([])
+  summary  String?  @db.Text
+  attended Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language       Language        @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  course         Course?         @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  scheduledClass ScheduledClass? @relation(fields: [scheduledClassId], references: [id], onDelete: SetNull)
+  documents      Document[]
+  studySessions  StudySession[]
+
+  @@index([userId, languageId, date])
+  @@index([userId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Documents: the single annotatable unit
+// ---------------------------------------------------------------------------
+
+enum DocumentOrigin {
+  UPLOAD // ingested file, normalised to PDF
+  NATIVE // created in-app, all leaves are note pages
+}
+
+enum DocumentStatus {
+  PENDING
+  CONVERTING
+  READY
+  FAILED
+}
+
+model Document {
+  id             String  @id @default(cuid())
+  userId         String
+  languageId     String
+  courseId       String?
+  classSessionId String?
+
+  title  String
+  origin DocumentOrigin
+  status DocumentStatus @default(PENDING)
+
+  /// Denormalised count of non-hidden leaves. Maintained by the leaf service.
+  leafCount    Int      @default(0)
+  thumbnailKey String?
+  tags         String[] @default([])
+  starred      Boolean  @default(false)
+  lastOpenedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language     Language      @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  course       Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  classSession ClassSession? @relation(fields: [classSessionId], references: [id], onDelete: SetNull)
+
+  sourceFiles   SourceFile[]
+  leaves        Leaf[]
+  annotations   Annotation[]
+  comments      Comment[]
+  studySessions StudySession[]
+
+  @@index([userId, languageId, deletedAt])
+  @@index([userId, lastOpenedAt])
+  @@index([classSessionId])
+}
+
+/// The bytes the user gave us, plus the PDF we derived from them.
+/// The original is never mutated and never deleted while the document lives.
+model SourceFile {
+  id         String @id @default(cuid())
+  documentId String
+
+  originalName   String
+  mimeType       String
+  byteSize       BigInt
+  checksumSha256 String
+  storageKey     String // original bytes
+
+  pdfStorageKey    String? // normalised PDF; == storageKey when input was already PDF
+  pdfPageCount     Int?
+  pdfByteSize      BigInt?
+  conversionEngine String? // none | libreoffice | img2pdf | pdf-repair
+  conversionMs     Int?
+  conversionLog    String? @db.Text
+
+  hasTextLayer Boolean @default(false) // false => OCR needed for text selection
+  ocrApplied   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  leaves   Leaf[]
+
+  @@index([documentId])
+  @@index([checksumSha256])
+}
+
+enum LeafKind {
+  SOURCE_PAGE // one page of SourceFile.pdf
+  NOTE_PAGE   // a page the user wrote in-app
+}
+
+/// A document is an ORDERED LIST OF LEAVES. This is what lets the user drop
+/// their own note page between page 3 and page 4 of the teacher's handout
+/// without ever touching the uploaded file.
+model Leaf {
+  id         String @id @default(cuid())
+  documentId String
+
+  /// Fractional index. Inserting between two leaves = average of neighbours.
+  /// Reordering is a single-row update, never a renumber of the whole doc.
+  position Decimal @db.Decimal(30, 15)
+
+  kind            LeafKind
+  sourceFileId    String? // required when kind = SOURCE_PAGE
+  sourcePageIndex Int? //    0-based page in that file's PDF
+  notePageId      String? @unique // required when kind = NOTE_PAGE
+
+  label    String? // user-visible page label, e.g. "Grammatica — passato prossimo"
+  rotation Int     @default(0) // 0 | 90 | 180 | 270, view-only
+  hidden   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  document    Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sourceFile  SourceFile?  @relation(fields: [sourceFileId], references: [id], onDelete: Cascade)
+  notePage    NotePage?    @relation(fields: [notePageId], references: [id], onDelete: Cascade)
+  annotations Annotation[]
+  comments    Comment[]
+
+  @@unique([documentId, position])
+  @@index([documentId, hidden])
+}
+
+model NotePage {
+  id String @id @default(cuid())
+
+  format      String @default("markdown")
+  content     String @db.Text // markdown source — the source of truth
+  contentJson Json? // optional editor AST cache; may be regenerated from content
+
+  /// Page geometry used when this note is baked into an exported PDF.
+  pageSize    String @default("A4") // A4 | LETTER
+  orientation String @default("portrait")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leaf Leaf?
+}
+
+// ---------------------------------------------------------------------------
+// Annotations
+// ---------------------------------------------------------------------------
+
+enum AnnotationKind {
+  HIGHLIGHT
+  UNDERLINE
+  STRIKETHROUGH
+  INK // freehand pen
+  TEXT_BOX // typed text placed on the page
+  SHAPE // rect | ellipse | arrow | line
+  COMMENT_PIN // anchor for a comment thread with no visual mark of its own
+}
+
+/// Geometry is ALWAYS stored in normalised page coordinates: x and y in
+/// [0,1] relative to the page's un-rotated CropBox, origin top-left.
+/// Never store device pixels. See docs/ANNOTATION_ENGINE.md.
+model Annotation {
+  id         String @id @default(cuid())
+  userId     String
+  documentId String
+  leafId     String
+
+  kind    AnnotationKind
+  /// Design-token key ("hl-yellow"), resolved to a hex at render time so
+  /// highlights stay legible when the viewer inverts pages for dark mode.
+  color   String         @default("hl-yellow")
+  opacity Float          @default(0.4)
+  zIndex  Int            @default(0)
+
+  geometry Json // shape depends on kind; validated by a Zod schema per kind
+
+  /// Text-anchored kinds also store what they were attached to, so the mark
+  /// can be re-attached if the source is re-converted and pages shift.
+  quotedText String? @db.Text
+  textAnchor Json? // { pageIndex, prefix, exact, suffix, startOffset, endOffset }
+
+  /// Client-generated UUID. Makes offline replay idempotent.
+  clientId String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft delete so offline clients can reconcile
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  leaf     Leaf       @relation(fields: [leafId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@unique([userId, clientId])
+  @@index([documentId, updatedAt])
+  @@index([leafId, deletedAt])
+}
+
+model Comment {
+  id           String  @id @default(cuid())
+  userId       String
+  documentId   String
+  leafId       String?
+  annotationId String?
+  parentId     String?
+
+  body       String    @db.Text
+  resolvedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  leaf       Leaf?       @relation(fields: [leafId], references: [id], onDelete: Cascade)
+  annotation Annotation? @relation(fields: [annotationId], references: [id], onDelete: Cascade)
+  parent     Comment?    @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[]   @relation("CommentThread")
+
+  @@index([documentId, deletedAt])
+  @@index([annotationId])
+}
+
+// ---------------------------------------------------------------------------
+// Study tracking
+// ---------------------------------------------------------------------------
+
+enum StudySource {
+  TIMER
+  MANUAL
+  SCHEDULE // auto-created from a ScheduledClass the user confirmed
+}
+
+enum StudyActivity {
+  CLASS
+  HOMEWORK
+  READING
+  REVIEW
+  LISTENING
+  SPEAKING
+  WRITING
+  OTHER
+}
+
+model StudySession {
+  id         String @id @default(cuid())
+  userId     String
+  languageId String
+
+  source   StudySource
+  activity StudyActivity @default(OTHER)
+
+  startedAt   DateTime
+  endedAt     DateTime?
+  durationSec Int       @default(0) // authoritative once endedAt is set
+
+  classSessionId String?
+  documentId     String?
+  note           String?
+
+  /// Live timers only. A session with endedAt = null and a heartbeat older
+  /// than STALE_TIMER_MINUTES is closed by the reaper at its last heartbeat.
+  lastHeartbeatAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language     Language      @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  classSession ClassSession? @relation(fields: [classSessionId], references: [id], onDelete: SetNull)
+  document     Document?     @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([userId, languageId, startedAt])
+  @@index([userId, endedAt]) // partial-index target for open timers
+}
+
+/// Pre-aggregated per-day totals. The heatmap and the weekly bars read this,
+/// never StudySession. Rebuilt transactionally whenever a session is written.
+model StudyDayAggregate {
+  userId     String
+  languageId String
+  day        DateTime @db.Date // in the user's time zone at write time
+
+  totalSec     Int @default(0)
+  sessionCount Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@id([userId, languageId, day])
+  @@index([userId, day])
+}
+
+model WeeklyGoal {
+  id         String @id @default(cuid())
+  userId     String
+  languageId String
+
+  targetMinutes Int
+  effectiveFrom DateTime @db.Date
+
+  createdAt DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, languageId, effectiveFrom])
+}
+
+// ---------------------------------------------------------------------------
+// Infrastructure
+// ---------------------------------------------------------------------------
+
+/// Audit trail for destructive or security-relevant actions.
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // "document.delete", "auth.login.failed", ...
+  targetId  String?
+  ip        String?
+  userAgent String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
