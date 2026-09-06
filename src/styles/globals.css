@@ -222,3 +222,58 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+ * pdf.js text layer.
+ *
+ * These rules are not decoration — pdf.js positions each span with
+ * `calc(var(--scale-factor) * Npx)`, so without `--scale-factor` on an
+ * ancestor every span lands at the wrong place, and without
+ * `color: transparent` they paint on top of the canvas as visible black text.
+ * Both were visible bugs before this block existed.
+ *
+ * The layer stays fully interactive: it is what makes text selectable, and
+ * therefore what makes highlighting possible at all.
+ * ----------------------------------------------------------------------- */
+
+.textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  text-align: initial;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 1;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.textLayer span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+/* The selection has to be visible through a transparent glyph. */
+.textLayer ::selection {
+  background: color-mix(in srgb, var(--accent-base) 35%, transparent);
+  color: transparent;
+}
+
+.textLayer br::selection {
+  background: transparent;
+}
+
+/* Hidden until the canvas beneath has painted, so text never flashes alone. */
+.textLayer.is-loading {
+  opacity: 0;
+}

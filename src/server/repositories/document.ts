@@ -248,6 +248,16 @@ export async function setStatus(
   });
 }
 
+export async function setThumbnailKey(
+  documentId: string,
+  thumbnailKey: string,
+): Promise<void> {
+  await prisma.document.update({
+    where: { id: documentId },
+    data: { thumbnailKey },
+  });
+}
+
 export async function ownerOf(documentId: string): Promise<string | null> {
   const row = await prisma.document.findUnique({
     where: { id: documentId },

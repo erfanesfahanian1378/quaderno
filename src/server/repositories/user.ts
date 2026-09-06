@@ -124,6 +124,14 @@ export async function softDelete(ctx: Ctx): Promise<boolean> {
   return result.count > 0;
 }
 
+/** Storage accounting. Signed so a delete can give the space back. */
+export async function addStorageUsed(ctx: Ctx, delta: bigint): Promise<void> {
+  await prisma.user.updateMany({
+    where: { id: ctx.userId },
+    data: { storageUsedBytes: { increment: delta } },
+  });
+}
+
 // --- Sessions ---------------------------------------------------------------
 
 export async function listSessions(ctx: Ctx) {

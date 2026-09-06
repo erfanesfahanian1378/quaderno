@@ -11,13 +11,17 @@
  */
 import { getBoss, stopBoss } from "./queue";
 import { registerNoop } from "./jobs/noop";
+import { registerIngest } from "./jobs/document-ingest";
+import { registerTimerReaper } from "./jobs/timer-reaper";
 
 async function main(): Promise<void> {
   const boss = await getBoss();
   console.log("[worker] pg-boss started");
 
   await registerNoop(boss);
-  console.log("[worker] registered: noop");
+  await registerIngest(boss);
+  await registerTimerReaper(boss);
+  console.log("[worker] registered: noop, document.ingest, study.timer-reaper");
 
   console.log("[worker] ready");
 }
