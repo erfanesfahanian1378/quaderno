@@ -40,13 +40,22 @@ export function WeekBars({
 
   return (
     <div>
-      <div className="flex h-40 items-end gap-2">
+      <div className="flex h-40 items-stretch gap-2">
         {days.map((day, index) => {
           const total = totals[index] ?? 0;
           const isToday = day === today;
 
           return (
-            <div key={day} className="flex flex-1 flex-col items-center gap-2">
+            /*
+             * `h-full` is load-bearing. The row uses items-end, so without it
+             * each column shrinks to its content height, the inner flex-1 has
+             * no definite height, and every bar's `height: N%` resolves
+             * against zero — a chart that silently renders nothing.
+             */
+            <div
+              key={day}
+              className="flex h-full flex-1 flex-col items-center gap-2"
+            >
               <div
                 className="flex w-full flex-1 flex-col justify-end gap-px"
                 title={`${formatDuration(total * 60)} on ${day}`}

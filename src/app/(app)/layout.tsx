@@ -2,6 +2,7 @@ import { requireUserPage } from "@/server/auth/guards";
 import * as languages from "@/server/repositories/language";
 import { Sidebar } from "@/components/nav/Sidebar";
 import { MobileTabBar } from "@/components/nav/MobileTabBar";
+import { TimerPill } from "@/components/study/TimerPill";
 
 /**
  * The authenticated shell. Desktop gets a persistent sidebar; mobile gets a
@@ -35,6 +36,13 @@ export default async function AppLayout({
           {children}
         </main>
       </div>
+
+      {/*
+        The running timer follows the user around the app. It sits above the
+        mobile tab bar and, on the viewer route, collapses to a dot so it can
+        never cover the annotation toolbar (DESIGN_BRIEF §5.9).
+      */}
+      <TimerPill languages={list} />
 
       <MobileTabBar />
     </div>

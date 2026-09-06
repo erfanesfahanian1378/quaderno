@@ -191,6 +191,22 @@
   }
 }
 
+/*
+ * The timer's slow breathing ring — DESIGN_BRIEF §7: a 4s cycle at about 3%
+ * scale, and nothing more. It is the one piece of ambient motion in the app.
+ */
+@keyframes qbreathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 0.3;
+  }
+}
+
 @layer utilities {
   /* Tabular figures for the timer, durations and any counted number. */
   .tabular {
