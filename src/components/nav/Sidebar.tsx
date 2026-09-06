@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import type { AccentKey } from "@/lib/tokens";
 import {
+  BookIcon,
   ChartIcon,
   ClockIcon,
   HomeIcon,
   PlusIcon,
+  SearchIcon,
   SettingsIcon,
 } from "./icons";
 
@@ -36,6 +38,14 @@ export function Sidebar({ languages }: { languages: SidebarLanguage[] }) {
         <NavLink href="/dashboard" active={pathname === "/dashboard"}>
           <HomeIcon />
           Today
+        </NavLink>
+        <NavLink href="/library" active={pathname.startsWith("/library")}>
+          <BookIcon />
+          Library
+        </NavLink>
+        <NavLink href="/search" active={pathname.startsWith("/search")}>
+          <SearchIcon />
+          Search
         </NavLink>
         <NavLink href="/study" active={pathname.startsWith("/study")}>
           <ClockIcon />
