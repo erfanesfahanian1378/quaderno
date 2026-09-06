@@ -86,7 +86,7 @@ VPS, so self-hosting it costs about what a coffee does.
 ## Quick start
 
 ```bash
-git clone https://github.com/<you>/quaderno.git
+git clone git@github.com:erfanesfahanian1378/quaderno.git
 cd quaderno
 cp .env.example .env          # generate AUTH_SECRET with: openssl rand -base64 32
 
