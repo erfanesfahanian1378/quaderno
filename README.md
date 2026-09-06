@@ -157,6 +157,39 @@ pnpm analyze        # bundle budget report
 tuning and the backup/restore drill are in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §6 and §9.
 
+## What works today
+
+Every item below has been exercised end to end in a real browser, not just
+unit-tested.
+
+- [x] Register, sign in, reset a password, sign out
+- [x] Add languages, set levels, accents and weekly goals
+- [x] Upload a PDF, Word file, slide deck, image or markdown; everything is
+      converted to PDF and the original is kept byte-identical
+- [x] Read a document in a virtualised pdf.js viewer with a page rail
+- [x] Select text and highlight, underline or strike it through, in five
+      labelled colours
+- [x] Draw freehand with pressure and palm rejection; erase strokes
+- [x] Insert your own note page anywhere, including between two pages of the
+      teacher's handout, from six templates
+- [x] Edit note pages in place with debounced autosave and conflict detection
+- [x] Export a flattened PDF, or a notes-only revision handout, from the
+      browser
+- [x] Start a timer, log time manually, see weekly goal rings, a stacked week
+      chart, a year heatmap and streaks
+- [x] Search across documents, note pages, highlights, comments and classes,
+      ignoring accents
+
+### Not built yet
+
+- [ ] OCR is queued as a job but the `ocrmypdf` step is not wired up
+- [ ] "Layered" export (real editable PDF annotation objects)
+- [ ] Recurring classes and attendance confirmation (`ScheduledClass` exists
+      in the schema; the RRULE expansion does not)
+- [ ] Comments UI — the API and repository are done, the right rail is not
+- [ ] Offline/PWA service worker
+- [ ] Server-side export for documents over 150 leaves
+
 ## Roadmap
 
 - [ ] Spaced-repetition review built from vocabulary-table note pages
