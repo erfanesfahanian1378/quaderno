@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-09-06T19:46:49.010Z",
+  "rows": [
+    {
+      "route": "/page",
+      "files": 5,
+      "gzipBytes": 106109
+    },
+    {
+      "route": "/dev/tokens/page",
+      "files": 5,
+      "gzipBytes": 104323
+    },
+    {
+      "route": "/_not-found/page",
+      "files": 5,
+      "gzipBytes": 103653
+    },
+    {
+      "route": "/layout",
+      "files": 5,
+      "gzipBytes": 103013
+    }
+  ]
+}

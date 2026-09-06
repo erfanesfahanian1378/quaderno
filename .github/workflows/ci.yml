@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # CI values only. Real secrets never appear in this file.
+  DATABASE_URL: postgresql://quaderno:quaderno@localhost:5432/quaderno?schema=public&connection_limit=8
+  QUEUE_DATABASE_URL: postgresql://quaderno:quaderno@localhost:5432/quaderno?schema=pgboss
+  AUTH_SECRET: ci-secret-ci-secret-ci-secret-32chars
+  S3_ENDPOINT: http://localhost:9000
+  S3_REGION: us-east-1
+  S3_BUCKET: quaderno
+  S3_ACCESS_KEY_ID: quaderno
+  S3_SECRET_ACCESS_KEY: quaderno-dev-secret
+  S3_FORCE_PATH_STYLE: "true"
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  NEXT_PUBLIC_STORAGE_ORIGIN: http://localhost:9000
+  LOG_LEVEL: error
+
+jobs:
+  verify:
+    name: typecheck · lint · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: quaderno
+          POSTGRES_PASSWORD: quaderno
+          POSTGRES_DB: quaderno
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U quaderno -d quaderno"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: quaderno
+          MINIO_ROOT_PASSWORD: quaderno-dev-secret
+          MINIO_DEFAULT_BUCKETS: quaderno
+        ports: ["9000:9000"]
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      # Proves the migration runs on an empty database, which is what a fresh
+      # deployment does. PHASE-01 asks for this to be verified in CI, not just
+      # on a developer's laptop.
+      - name: Migrate
+        run: pnpm db:deploy
+
+      - name: Seed
+        run: pnpm db:seed
+
+      - name: Test (unit + integration)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      # PHASE-09 turns this into an enforced budget (viewer route <= 250 KB
+      # gzipped first-load JS, excluding pdf.js). Until then it reports, so the
+      # trend is visible from the first phase rather than discovered at the end.
+      - name: Bundle size report
+        run: node scripts/bundle-report.mjs
+        continue-on-error: true
+
+      - name: Upload bundle report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-report
+          path: bundle-report.json
+          if-no-files-found: ignore
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

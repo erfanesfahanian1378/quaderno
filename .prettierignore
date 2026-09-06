@@ -1,0 +1,18 @@
+node_modules
+.next
+dist
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
+prisma/migrations
+public
+
+# The specs are hand-authored prose and the source of truth for the build.
+# Prettier reflows them (it strips the hanging indent inside multi-line inline
+# code spans, among other things), which makes them marginally worse and
+# produces diff noise on files nobody edited. Format them by hand or not at
+# all.
+docs/
+CLAUDE.md
+README.md

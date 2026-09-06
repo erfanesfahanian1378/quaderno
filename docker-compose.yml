@@ -1,0 +1,89 @@
+# Local development stack. Production compose (web, worker, caddy) lands in
+# PHASE-09; this file covers the two backing services a developer needs.
+#
+# Both live under the `dev` profile so `docker compose up` in production does
+# not accidentally start a MinIO next to a managed R2 bucket.
+
+name: quaderno
+
+services:
+  db:
+    image: postgres:16-alpine
+    profiles: ["dev"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quaderno
+      POSTGRES_PASSWORD: quaderno
+      POSTGRES_DB: quaderno
+      # Speeds up initdb; the dev database is not a durability story.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command:
+      # ARCHITECTURE.md §6 budgets Postgres at ~350 MB RSS on a 2 GB box.
+      # These are the production values, used locally too so a slow query
+      # shows up on a laptop rather than in production.
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "max_connections=20"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "effective_cache_size=768MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      # Log anything slower than 200ms — the API read budget is 120ms p95.
+      - "-c"
+      - "log_min_duration_statement=200"
+    ports:
+      # Overridable: a developer machine often already runs Postgres on 5432,
+      # and on macOS the native listener wins for connections from the host
+      # even though Docker also binds the port. Set DB_PORT in .env if so.
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quaderno -d quaderno"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    profiles: ["dev"]
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: quaderno
+      MINIO_ROOT_PASSWORD: quaderno-dev-secret
+    ports:
+      - "${MINIO_PORT:-9000}:9000" # S3 API
+      - "${MINIO_CONSOLE_PORT:-9001}:9001" # console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: creates the bucket and exits. `depends_on` with
+  # service_healthy is what makes `docker compose up -d` deterministic.
+  createbuckets:
+    image: minio/mc:latest
+    profiles: ["dev"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 quaderno quaderno-dev-secret &&
+      mc mb --ignore-existing local/quaderno &&
+      echo 'bucket ready';
+      "
+
+volumes:
+  db-data:
+  minio-data:

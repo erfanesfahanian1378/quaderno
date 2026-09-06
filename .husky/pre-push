@@ -1,0 +1,2 @@
+# Typecheck before a push. Lint and format already ran on the commit.
+pnpm typecheck

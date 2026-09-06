@@ -1,0 +1,224 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/*
+ * Tailwind theme. Two blocks, and the difference matters:
+ *
+ *   @theme        — invariant scales (radius, type, fonts, easing). Tailwind
+ *                   owns these namespaces and emits them as :root variables.
+ *   @theme inline — theme-VARYING values. `inline` makes the generated utility
+ *                   emit `var(--bg-surface)` rather than a resolved colour, so
+ *                   flipping data-theme on <html> reflows every utility with
+ *                   no rebuild and no duplicated dark: variants.
+ */
+
+@theme {
+  /* ---- Radius — DESIGN_BRIEF §3.4 -------------------------------------- */
+  --radius-sm: 6px; /* inputs, chips */
+  --radius-md: 10px; /* cards, buttons */
+  --radius-lg: 14px; /* panels, sheets */
+  --radius-full: 9999px;
+
+  /* ---- Type families --------------------------------------------------- */
+  --font-ui:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --font-reading:
+    var(--font-source-serif), ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-ui);
+  --font-serif: var(--font-reading);
+
+  /* ---- Type scale — DESIGN_BRIEF §3.3 ---------------------------------- */
+  --text-display: 32px;
+  --text-display--line-height: 38px;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 600;
+
+  --text-h1: 24px;
+  --text-h1--line-height: 30px;
+  --text-h1--letter-spacing: -0.015em;
+  --text-h1--font-weight: 600;
+
+  --text-h2: 20px;
+  --text-h2--line-height: 26px;
+  --text-h2--letter-spacing: -0.01em;
+  --text-h2--font-weight: 600;
+
+  --text-h3: 17px;
+  --text-h3--line-height: 24px;
+  --text-h3--letter-spacing: -0.005em;
+  --text-h3--font-weight: 600;
+
+  --text-body: 15px;
+  --text-body--line-height: 23px;
+  --text-body--font-weight: 400;
+
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 19px;
+  --text-body-sm--font-weight: 400;
+
+  --text-label: 13px;
+  --text-label--line-height: 16px;
+  --text-label--letter-spacing: 0.005em;
+  --text-label--font-weight: 500;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--letter-spacing: 0.01em;
+  --text-caption--font-weight: 450;
+
+  /* Serif, for note-page content. */
+  --text-note-body: 17px;
+  --text-note-body--line-height: 28px;
+  --text-note-body--font-weight: 400;
+
+  /* ---- Motion ---------------------------------------------------------- */
+  --ease-panel: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@theme inline {
+  /* ---- Surfaces & text ------------------------------------------------- */
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-subtle: var(--bg-subtle);
+  --color-inset: var(--bg-inset);
+  --color-hairline: var(--border-subtle);
+  --color-hairline-strong: var(--border-strong);
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-ink-3: var(--text-tertiary);
+  --color-ink-inverse: var(--text-inverse);
+
+  /* ---- Active language accent ------------------------------------------ */
+  --color-accent: var(--accent-base);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-on: var(--accent-on);
+
+  /* ---- The six accents, addressable directly (settings, pickers) ------- */
+  --color-accent-1: var(--accent-1-base);
+  --color-accent-2: var(--accent-2-base);
+  --color-accent-3: var(--accent-3-base);
+  --color-accent-4: var(--accent-4-base);
+  --color-accent-5: var(--accent-5-base);
+  --color-accent-6: var(--accent-6-base);
+
+  /* ---- Highlighters ---------------------------------------------------- */
+  --color-hl-yellow: var(--hl-yellow);
+  --color-hl-green: var(--hl-green);
+  --color-hl-blue: var(--hl-blue);
+  --color-hl-pink: var(--hl-pink);
+  --color-hl-orange: var(--hl-orange);
+
+  /* ---- Pen ink --------------------------------------------------------- */
+  --color-pen-black: var(--ink-black);
+  --color-pen-rust: var(--ink-rust);
+  --color-pen-blue: var(--ink-blue);
+  --color-pen-green: var(--ink-green);
+
+  /* ---- Semantic -------------------------------------------------------- */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-on-soft: var(--success-on-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-on-soft: var(--warning-on-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-on-soft: var(--danger-on-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-on-soft: var(--info-on-soft);
+
+  /* ---- Elevation ------------------------------------------------------- */
+  --shadow-e1: var(--elevation-1);
+  --shadow-e2: var(--elevation-2);
+  --shadow-e3: var(--elevation-3);
+}
+
+/* --------------------------------------------------------------------------
+ * Base layer
+ * ----------------------------------------------------------------------- */
+
+@layer base {
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 23px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * DESIGN_BRIEF §3.4 and §8: a 2px accent ring at 2px offset on every
+   * interactive element, never removed. `:focus-visible` keeps it off mouse
+   * clicks without costing keyboard users anything.
+   */
+  :focus-visible {
+    outline: 2px solid var(--accent-base);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* iOS zooms a focused input under 16px. Inputs are 16px on mobile. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--text-primary);
+  }
+
+  /* Scrollbars pick up the inset token rather than the OS default. */
+  * {
+    scrollbar-color: var(--border-strong) var(--bg-inset);
+  }
+}
+
+@layer utilities {
+  /* Tabular figures for the timer, durations and any counted number. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* A document page. Radius 2 — paper barely rounds. */
+  .page-sheet {
+    background: var(--bg-surface);
+    border-radius: var(--radius-page);
+    box-shadow: var(--elevation-1);
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * DESIGN_BRIEF §3.4: nothing longer than 250ms, and everything respects
+ * prefers-reduced-motion. This is the global backstop; components must not
+ * re-enable motion under it.
+ * ----------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

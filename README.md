@@ -70,18 +70,18 @@ VPS, so self-hosting it costs about what a coffee does.
 
 ## Stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| Framework | Next.js 15 (App Router), TypeScript strict | One deployable, RSC keeps client JS small |
-| Database | PostgreSQL 16 + Prisma 6 | Relational data, and it doubles as the job queue |
-| Auth | Auth.js v5, argon2id, DB sessions | No third-party dependency, no per-MAU bill |
-| Storage | S3-compatible (MinIO local, R2/B2 in prod) | Blobs off the VPS disk |
-| Jobs | pg-boss on the same Postgres | No Redis — saves ~150 MB RSS |
-| Conversion | LibreOffice headless, qpdf, ocrmypdf, sharp | Spawned per job, never resident |
-| PDF | pdf.js (view) + pdf-lib (export, in-browser) | The server never rasterises a page |
-| UI | Tailwind CSS 4, Radix primitives, custom design system | See `docs/DESIGN_BRIEF.md` |
-| Charts | visx / Recharts | Small, composable |
-| Tests | Vitest, Playwright, Testing Library | |
+| Layer      | Choice                                                 | Why                                              |
+| ---------- | ------------------------------------------------------ | ------------------------------------------------ |
+| Framework  | Next.js 15 (App Router), TypeScript strict             | One deployable, RSC keeps client JS small        |
+| Database   | PostgreSQL 16 + Prisma 6                               | Relational data, and it doubles as the job queue |
+| Auth       | Auth.js v5, argon2id, DB sessions                      | No third-party dependency, no per-MAU bill       |
+| Storage    | S3-compatible (MinIO local, R2/B2 in prod)             | Blobs off the VPS disk                           |
+| Jobs       | pg-boss on the same Postgres                           | No Redis — saves ~150 MB RSS                     |
+| Conversion | LibreOffice headless, qpdf, ocrmypdf, sharp            | Spawned per job, never resident                  |
+| PDF        | pdf.js (view) + pdf-lib (export, in-browser)           | The server never rasterises a page               |
+| UI         | Tailwind CSS 4, Radix primitives, custom design system | See `docs/DESIGN_BRIEF.md`                       |
+| Charts     | visx / Recharts                                        | Small, composable                                |
+| Tests      | Vitest, Playwright, Testing Library                    |                                                  |
 
 ## Quick start
 
@@ -93,7 +93,7 @@ cp .env.example .env          # generate AUTH_SECRET with: openssl rand -base64 
 docker compose --profile dev up -d   # postgres + minio
 pnpm install
 pnpm db:migrate
-pnpm db:seed                  # demo user: demo@quaderno.app / quaderno
+pnpm db:seed                  # demo user: demo@quaderno.app
 pnpm dev                      # http://localhost:3000
 
 # in a second terminal — conversion, OCR and thumbnails need it
@@ -102,6 +102,20 @@ pnpm worker:dev
 
 Requires Node 22+, pnpm 9+, Docker. For `.docx` conversion outside Docker you
 also need LibreOffice on your `PATH` (`brew install --cask libreoffice`).
+
+> **Already running Postgres locally?** Set `DB_PORT` in `.env` to something
+> free (say `5433`) and change the port in `DATABASE_URL` and
+> `QUEUE_DATABASE_URL` to match. On macOS a native listener on 5432 wins for
+> connections from the host even though Docker also binds the port, and the
+> symptom is an unhelpful `P1010: User was denied access` from Prisma.
+
+Useful during development:
+
+```bash
+open http://localhost:3000/dev/tokens   # every colour, type step, radius and
+                                        # elevation in both themes (dev only)
+pnpm queue:noop "hello"                 # proves the worker is consuming jobs
+```
 
 ## Repository map
 

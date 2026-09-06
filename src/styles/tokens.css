@@ -1,0 +1,405 @@
+/*
+ * Quaderno design tokens — docs/DESIGN_BRIEF.md §3.
+ *
+ * HARD RULE (CLAUDE.md #5): hex values live ONLY in this file. Everything
+ * else — components, the database, annotation `color` columns — refers to
+ * token KEYS. That indirection is what lets a highlight stored as
+ * "hl-yellow" resolve to a different real colour when the viewer inverts
+ * pages in dark mode.
+ *
+ * ---------------------------------------------------------------------------
+ * Theme resolution has three states and all three are handled below:
+ *
+ *   1. explicit choice   <html data-theme="light" | "dark">
+ *   2. system + dark     prefers-color-scheme, guarded so an explicit
+ *                        "light" always wins
+ *   3. system + light    the bare :root defaults
+ *
+ * The [data-theme] blocks are deliberately NOT scoped to :root, so a SUBTREE
+ * can carry its own theme. Two places need that: the /dev/tokens page, which
+ * shows both themes side by side, and the viewer's inverted-page preview.
+ *
+ * Radius, the type scale and the font families are NOT here — they live in
+ * the Tailwind @theme block in globals.css, because Tailwind owns the
+ * --radius-*, --text-* and --font-* namespaces and emits its own :root
+ * defaults we would otherwise fight over cascade order with. They do not
+ * vary by theme, which is what makes that split safe.
+ * ---------------------------------------------------------------------------
+ */
+
+/* ===========================================================================
+ * 1. Light — the default, plus everything that does not vary by theme
+ * ======================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* Neutrals */
+  --bg-canvas: #f7f6f3;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f0eee9;
+  --bg-inset: #e8e5de;
+  --border-subtle: #e4e1da;
+  --border-strong: #cfcbc2;
+  --text-primary: #1c1b18;
+  --text-secondary: #57544d;
+  --text-tertiary: #8c877d;
+  --text-inverse: #fbfaf8;
+
+  /* Language accents — base / soft / on */
+  --accent-1-base: #3f7d58; /* Basil  */
+  --accent-1-soft: #e6efe9;
+  --accent-1-on: #ffffff;
+  --accent-2-base: #4a5fbf; /* Indigo */
+  --accent-2-soft: #e7eaf7;
+  --accent-2-on: #ffffff;
+  --accent-3-base: #9a6a14; /* Ochre  */
+  --accent-3-soft: #f6eede;
+  --accent-3-on: #ffffff;
+  --accent-4-base: #b14a32; /* Rust   */
+  --accent-4-soft: #f7e9e5;
+  --accent-4-on: #ffffff;
+  --accent-5-base: #2c7a82; /* Teal   */
+  --accent-5-soft: #e2eff0;
+  --accent-5-on: #ffffff;
+  --accent-6-base: #7a4a82; /* Plum   */
+  --accent-6-soft: #f0e8f2;
+  --accent-6-on: #ffffff;
+
+  /* Highlighters — translucent ink on white paper */
+  --hl-yellow: #ffe27a;
+  --hl-green: #a9e5a0;
+  --hl-blue: #9fd0f5;
+  --hl-pink: #f7a8c4;
+  --hl-orange: #ffc48a;
+
+  /* Semantic */
+  --success: #2e7d4f;
+  --success-soft: #e8f2ec;
+  --success-on-soft: #1f5637;
+  --warning: #b57a1f;
+  --warning-soft: #f6eede;
+  --warning-on-soft: #7a5214;
+  --danger: #c0392b;
+  --danger-soft: #f9e7e4;
+  --danger-on-soft: #8c2a20;
+  --info: #4a5fbf;
+  --info-soft: #e7eaf7;
+  --info-on-soft: #33427f;
+
+  /* Elevation */
+  --elevation-1: 0 1px 2px rgba(28, 27, 24, 0.06);
+  --elevation-2: 0 4px 16px rgba(28, 27, 24, 0.1);
+  --elevation-3: 0 12px 32px rgba(28, 27, 24, 0.16);
+
+  /*
+   * The ACTIVE accent. The language shell sets data-accent on its subtree;
+   * every component then reads --accent-base and needs to know nothing else.
+   * Defaults to Basil so a page outside any language still has a focus ring.
+   */
+  --accent-base: var(--accent-1-base);
+  --accent-soft: var(--accent-1-soft);
+  --accent-on: var(--accent-1-on);
+
+  /* ---- Pen ink — solid, and identical in both themes ------------------- */
+  --ink-black: #1c1b18;
+  --ink-rust: #b14a32;
+  --ink-blue: #2c6bb1;
+  --ink-green: #3f7d58;
+
+  /* ---- Space (4px base) ------------------------------------------------ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+
+  /* ---- Radius that Tailwind does not own ------------------------------- */
+  --radius-page: 2px; /* paper barely rounds */
+
+  /* ---- Motion — nothing over 250ms ------------------------------------- */
+  --motion-fast: 120ms; /* hover, colour */
+  --motion-panel: 180ms; /* panels, sheets */
+  --motion-page: 220ms; /* page transitions */
+
+  /* ---- Layout ---------------------------------------------------------- */
+  --sidebar-width: 240px;
+  --sidebar-width-wide: 260px;
+  --content-max: 1120px;
+  --thumb-rail-width: 180px;
+  --comments-rail-width: 320px;
+}
+
+/* ===========================================================================
+ * 2. System dark. Guarded so an explicit data-theme="light" always wins.
+ * ======================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    /* Neutrals */
+    --bg-canvas: #16161a;
+    --bg-surface: #1e1e23;
+    --bg-subtle: #26262c;
+    --bg-inset: #2e2e35;
+    --border-subtle: #2f2f37;
+    --border-strong: #45454f;
+    --text-primary: #f0eee9;
+    --text-secondary: #aba79e;
+    --text-tertiary: #7a766e;
+    --text-inverse: #16161a;
+
+    /*
+     * Accents are lightened for dark mode so they clear 4.5:1 against
+     * --bg-surface when used as text (DESIGN_BRIEF §8 — the brief gives light
+     * values only, and the light Basil #3F7D58 measures 3.7:1 on #16161A,
+     * which fails body text). `soft` is the base mixed 18% into the surface;
+     * `on` flips to ink because the base is now the light colour.
+     */
+    --accent-1-base: #6fb58a;
+    --accent-1-soft: #242f2d;
+    --accent-1-on: #16161a;
+    --accent-2-base: #8b9be8;
+    --accent-2-soft: #262a3f;
+    --accent-2-on: #16161a;
+    --accent-3-base: #d9a64a;
+    --accent-3-soft: #392f22;
+    --accent-3-on: #16161a;
+    --accent-4-base: #e08b72;
+    --accent-4-soft: #382626;
+    --accent-4-on: #16161a;
+    --accent-5-base: #5fb6bf;
+    --accent-5-soft: #212f34;
+    --accent-5-on: #16161a;
+    --accent-6-base: #be8cc6;
+    --accent-6-soft: #2f2634;
+    --accent-6-on: #16161a;
+
+    /* Highlighters — the dark-mode values, for inverted pages */
+    --hl-yellow: #7c6614;
+    --hl-green: #2f6b2a;
+    --hl-blue: #23577f;
+    --hl-pink: #7e2f4c;
+    --hl-orange: #8a5220;
+
+    /* Semantic */
+    --success: #58b07e;
+    --success-soft: #1f2e27;
+    --success-on-soft: #a9d9bc;
+    --warning: #d9a64a;
+    --warning-soft: #322a1c;
+    --warning-on-soft: #e8cb92;
+    --danger: #e0705f;
+    --danger-soft: #331f1d;
+    --danger-on-soft: #efa79b;
+    --info: #8b9be8;
+    --info-soft: #212433;
+    --info-on-soft: #b6c0f0;
+
+    /* In dark mode elevation is a lighter surface plus a subtler shadow. */
+    --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --elevation-2: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --elevation-3: 0 12px 32px rgba(0, 0, 0, 0.55);
+    /*
+     * The ACTIVE accent. The language shell sets data-accent on its subtree;
+     * every component then reads --accent-base and needs to know nothing else.
+     * Defaults to Basil so a page outside any language still has a focus ring.
+     */
+    --accent-base: var(--accent-1-base);
+    --accent-soft: var(--accent-1-soft);
+    --accent-on: var(--accent-1-on);
+  }
+}
+
+/* ===========================================================================
+ * 3. Explicit choice. Not scoped to :root — a subtree can carry a theme.
+ * ======================================================================== */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Neutrals */
+  --bg-canvas: #16161a;
+  --bg-surface: #1e1e23;
+  --bg-subtle: #26262c;
+  --bg-inset: #2e2e35;
+  --border-subtle: #2f2f37;
+  --border-strong: #45454f;
+  --text-primary: #f0eee9;
+  --text-secondary: #aba79e;
+  --text-tertiary: #7a766e;
+  --text-inverse: #16161a;
+
+  /*
+   * Accents are lightened for dark mode so they clear 4.5:1 against
+   * --bg-surface when used as text (DESIGN_BRIEF §8 — the brief gives light
+   * values only, and the light Basil #3F7D58 measures 3.7:1 on #16161A,
+   * which fails body text). `soft` is the base mixed 18% into the surface;
+   * `on` flips to ink because the base is now the light colour.
+   */
+  --accent-1-base: #6fb58a;
+  --accent-1-soft: #242f2d;
+  --accent-1-on: #16161a;
+  --accent-2-base: #8b9be8;
+  --accent-2-soft: #262a3f;
+  --accent-2-on: #16161a;
+  --accent-3-base: #d9a64a;
+  --accent-3-soft: #392f22;
+  --accent-3-on: #16161a;
+  --accent-4-base: #e08b72;
+  --accent-4-soft: #382626;
+  --accent-4-on: #16161a;
+  --accent-5-base: #5fb6bf;
+  --accent-5-soft: #212f34;
+  --accent-5-on: #16161a;
+  --accent-6-base: #be8cc6;
+  --accent-6-soft: #2f2634;
+  --accent-6-on: #16161a;
+
+  /* Highlighters — the dark-mode values, for inverted pages */
+  --hl-yellow: #7c6614;
+  --hl-green: #2f6b2a;
+  --hl-blue: #23577f;
+  --hl-pink: #7e2f4c;
+  --hl-orange: #8a5220;
+
+  /* Semantic */
+  --success: #58b07e;
+  --success-soft: #1f2e27;
+  --success-on-soft: #a9d9bc;
+  --warning: #d9a64a;
+  --warning-soft: #322a1c;
+  --warning-on-soft: #e8cb92;
+  --danger: #e0705f;
+  --danger-soft: #331f1d;
+  --danger-on-soft: #efa79b;
+  --info: #8b9be8;
+  --info-soft: #212433;
+  --info-on-soft: #b6c0f0;
+
+  /* In dark mode elevation is a lighter surface plus a subtler shadow. */
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elevation-2: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --elevation-3: 0 12px 32px rgba(0, 0, 0, 0.55);
+
+  /*
+   * The ACTIVE accent. The language shell sets data-accent on its subtree;
+   * every component then reads --accent-base and needs to know nothing else.
+   * Defaults to Basil so a page outside any language still has a focus ring.
+   */
+  --accent-base: var(--accent-1-base);
+  --accent-soft: var(--accent-1-soft);
+  --accent-on: var(--accent-1-on);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Neutrals */
+  --bg-canvas: #f7f6f3;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f0eee9;
+  --bg-inset: #e8e5de;
+  --border-subtle: #e4e1da;
+  --border-strong: #cfcbc2;
+  --text-primary: #1c1b18;
+  --text-secondary: #57544d;
+  --text-tertiary: #8c877d;
+  --text-inverse: #fbfaf8;
+
+  /* Language accents — base / soft / on */
+  --accent-1-base: #3f7d58; /* Basil  */
+  --accent-1-soft: #e6efe9;
+  --accent-1-on: #ffffff;
+  --accent-2-base: #4a5fbf; /* Indigo */
+  --accent-2-soft: #e7eaf7;
+  --accent-2-on: #ffffff;
+  --accent-3-base: #9a6a14; /* Ochre  */
+  --accent-3-soft: #f6eede;
+  --accent-3-on: #ffffff;
+  --accent-4-base: #b14a32; /* Rust   */
+  --accent-4-soft: #f7e9e5;
+  --accent-4-on: #ffffff;
+  --accent-5-base: #2c7a82; /* Teal   */
+  --accent-5-soft: #e2eff0;
+  --accent-5-on: #ffffff;
+  --accent-6-base: #7a4a82; /* Plum   */
+  --accent-6-soft: #f0e8f2;
+  --accent-6-on: #ffffff;
+
+  /* Highlighters — translucent ink on white paper */
+  --hl-yellow: #ffe27a;
+  --hl-green: #a9e5a0;
+  --hl-blue: #9fd0f5;
+  --hl-pink: #f7a8c4;
+  --hl-orange: #ffc48a;
+
+  /* Semantic */
+  --success: #2e7d4f;
+  --success-soft: #e8f2ec;
+  --success-on-soft: #1f5637;
+  --warning: #b57a1f;
+  --warning-soft: #f6eede;
+  --warning-on-soft: #7a5214;
+  --danger: #c0392b;
+  --danger-soft: #f9e7e4;
+  --danger-on-soft: #8c2a20;
+  --info: #4a5fbf;
+  --info-soft: #e7eaf7;
+  --info-on-soft: #33427f;
+
+  /* Elevation */
+  --elevation-1: 0 1px 2px rgba(28, 27, 24, 0.06);
+  --elevation-2: 0 4px 16px rgba(28, 27, 24, 0.1);
+  --elevation-3: 0 12px 32px rgba(28, 27, 24, 0.16);
+
+  /*
+   * The ACTIVE accent. The language shell sets data-accent on its subtree;
+   * every component then reads --accent-base and needs to know nothing else.
+   * Defaults to Basil so a page outside any language still has a focus ring.
+   */
+  --accent-base: var(--accent-1-base);
+  --accent-soft: var(--accent-1-soft);
+  --accent-on: var(--accent-1-on);
+}
+
+/* ===========================================================================
+ * 4. Per-language accent subtrees
+ * ======================================================================== */
+
+[data-accent="accent-1"] {
+  --accent-base: var(--accent-1-base);
+  --accent-soft: var(--accent-1-soft);
+  --accent-on: var(--accent-1-on);
+}
+[data-accent="accent-2"] {
+  --accent-base: var(--accent-2-base);
+  --accent-soft: var(--accent-2-soft);
+  --accent-on: var(--accent-2-on);
+}
+[data-accent="accent-3"] {
+  --accent-base: var(--accent-3-base);
+  --accent-soft: var(--accent-3-soft);
+  --accent-on: var(--accent-3-on);
+}
+[data-accent="accent-4"] {
+  --accent-base: var(--accent-4-base);
+  --accent-soft: var(--accent-4-soft);
+  --accent-on: var(--accent-4-on);
+}
+[data-accent="accent-5"] {
+  --accent-base: var(--accent-5-base);
+  --accent-soft: var(--accent-5-soft);
+  --accent-on: var(--accent-5-on);
+}
+[data-accent="accent-6"] {
+  --accent-base: var(--accent-6-base);
+  --accent-soft: var(--accent-6-soft);
+  --accent-on: var(--accent-6-on);
+}
