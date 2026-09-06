@@ -102,10 +102,9 @@ export async function databaseReachable(): Promise<boolean> {
   const url = process.env.DATABASE_URL;
   if (!url) return false;
   try {
-    const { PrismaClient } = await import("@prisma/client");
-    const prisma = new PrismaClient();
+    // The shared client, for the same connection-budget reason as above.
+    const { prisma } = await import("@/server/repositories/client");
     await prisma.$queryRaw`SELECT 1`;
-    await prisma.$disconnect();
     return true;
   } catch {
     return false;

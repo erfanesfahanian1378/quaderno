@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api-client";
 import { OutboxQueue, type SyncState } from "@/lib/outbox/queue";
+import { uuid } from "@/lib/uuid";
 import type { HighlightKey, InkKey } from "@/lib/tokens";
 
 /**
@@ -125,7 +126,7 @@ export function useAnnotations(documentId: string) {
     (input: Omit<Annotation, "clientId"> & { clientId?: string }) => {
       const annotation: Annotation = {
         ...input,
-        clientId: input.clientId ?? crypto.randomUUID(),
+        clientId: input.clientId ?? uuid(),
       };
 
       // Step 2: the mark appears instantly. No await, no spinner.

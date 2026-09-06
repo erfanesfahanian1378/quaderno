@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
+import { uuid } from "@/lib/uuid";
 import { Banner, Button } from "@/components/ui";
 import { UploadIcon } from "@/components/nav/icons";
 import { cn } from "@/lib/cn";
@@ -89,7 +90,7 @@ export function Dropzone({
 
   const uploadOne = useCallback(
     async (file: File) => {
-      const id = crypto.randomUUID();
+      const id = uuid();
       setUploads((current) => [
         ...current,
         { id, name: file.name, progress: 0, state: "uploading" },

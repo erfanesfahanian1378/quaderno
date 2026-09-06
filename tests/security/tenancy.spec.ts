@@ -127,8 +127,16 @@ describe("a foreign id is not found", () => {
   it("returns nothing for every scoped read with a foreign id", async () => {
     if (!available) return;
 
-    const { PrismaClient } = await import("@prisma/client");
-    const prisma = new PrismaClient();
+    /*
+     * The SHARED client, not a new one.
+     *
+     * ARCHITECTURE.md §6 caps Postgres at max_connections=20 and the app's
+     * pool at 8. A second PrismaClient here opens a second pool of 8, and
+     * with a dev server and a worker also connected that tips the database
+     * over with "sorry, too many clients already" — which looks like a test
+     * failure but is really the connection budget doing its job.
+     */
+    const { prisma } = await import("@/server/repositories/client");
 
     const stamp = Date.now();
     const owner = await prisma.user.create({
@@ -287,11 +295,11 @@ describe("a foreign id is not found", () => {
       });
       expect(noteAfter?.content).toBe("segreto");
     } finally {
-      // Cascades clean up everything hanging off these two users.
+      // Cascades clean up everything hanging off these two users. The client
+      // is shared, so it is deliberately NOT disconnected here.
       await prisma.user.deleteMany({
         where: { id: { in: [owner.id, intruder.id] } },
       });
-      await prisma.$disconnect();
     }
   });
 });
