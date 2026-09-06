@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
 
 /**
