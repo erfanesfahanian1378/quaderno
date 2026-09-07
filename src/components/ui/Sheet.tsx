@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/cn";
 
 /**
  * A bottom sheet. Dismisses on swipe-down, on backdrop tap, and on Escape.
