@@ -1,5 +1,8 @@
 import { requireUserPage } from "@/server/auth/guards";
 import * as languages from "@/server/repositories/language";
+import * as review from "@/server/repositories/review";
+import * as users from "@/server/repositories/user";
+import { dayKeyInZone } from "@/lib/time";
 import { Sidebar } from "@/components/nav/Sidebar";
 import { MobileTabBar } from "@/components/nav/MobileTabBar";
 import { TimerPill } from "@/components/study/TimerPill";
@@ -14,11 +17,20 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const ctx = await requireUserPage();
-  const list = await languages.list(ctx);
+  const [list, user] = await Promise.all([
+    languages.list(ctx),
+    users.findById(ctx),
+  ]);
+
+  // Due today, in the user's own zone — "today" is a calendar question.
+  const dueCount = await review.dueCount(
+    ctx,
+    dayKeyInZone(new Date(), user?.timeZone ?? "Europe/Rome"),
+  );
 
   return (
     <div className="flex min-h-dvh">
-      <Sidebar languages={list} />
+      <Sidebar languages={list} dueCount={dueCount} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Skip link — DESIGN_BRIEF §8 asks for it to be visible on focus. */}

@@ -6,6 +6,8 @@ import { upcoming } from "@/server/services/study/schedule";
 import * as documents from "@/server/repositories/document";
 import * as study from "@/server/services/study";
 import * as users from "@/server/repositories/user";
+import * as review from "@/server/repositories/review";
+import { dayKeyInZone } from "@/lib/time";
 import { Button, Card, EmptyState, ProgressRing } from "@/components/ui";
 import { formatDuration } from "@/lib/time";
 import type { AccentKey } from "@/lib/tokens";
@@ -26,12 +28,16 @@ export default async function DashboardPage() {
   // A brand-new account goes to onboarding rather than an empty dashboard.
   if (list.length === 0) redirect("/onboarding");
 
-  const [week, recent, schedule] = await Promise.all([
+  const todayKey = dayKeyInZone(new Date(), user?.timeZone ?? "Europe/Rome");
+
+  const [week, recent, schedule, dueTotal, dueByLanguage] = await Promise.all([
     study.weekSummary(ctx),
     documents.recentlyOpened(ctx, 6),
     // The real feed: expanded rules merged with confirmed sessions, so a
     // class already answered never shows as "next".
     upcoming(ctx, 7),
+    review.dueCount(ctx, todayKey),
+    review.dueByLanguage(ctx, todayKey),
   ]);
 
   const weekByLanguage = new Map(
@@ -157,6 +163,45 @@ export default async function DashboardPage() {
                 Add materials
               </Button>
             </Link>
+          </Card>
+        </section>
+      ) : null}
+
+      {/*
+        Review sits above Continue because it is the thing with a deadline.
+        A card due today is due today; a document you were reading is still
+        there tomorrow.
+      */}
+      {dueTotal > 0 ? (
+        <section
+          aria-labelledby="review-heading"
+          className="flex flex-col gap-3"
+        >
+          <h2 id="review-heading" className="text-h3 text-ink">
+            Review
+          </h2>
+
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-h3 text-ink">
+                  {dueTotal} {dueTotal === 1 ? "card" : "cards"} due
+                </p>
+                <p className="mt-0.5 text-body-sm text-ink-2">
+                  {list
+                    .filter((entry) => dueByLanguage[entry.id])
+                    .map((entry) => `${entry.name} ${dueByLanguage[entry.id]}`)
+                    .join(" · ") || "From your vocabulary tables."}
+                </p>
+              </div>
+
+              <Link
+                href="/review"
+                className="inline-flex h-10 items-center rounded-md bg-accent px-4 text-label text-accent-on transition-opacity duration-[120ms] hover:opacity-90"
+              >
+                Start reviewing
+              </Link>
+            </div>
           </Card>
         </section>
       ) : null}

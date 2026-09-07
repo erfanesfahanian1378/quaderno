@@ -498,6 +498,7 @@ export function Viewer({
                       leaf={leaf}
                       scale={zoom}
                       label={leaf.label ?? String(pageNumber)}
+                      languageCode={doc.languageCode}
                     />
                   ) : pdf.status === "ready" ? (
                     <PdfPage

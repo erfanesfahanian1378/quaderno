@@ -1,5 +1,6 @@
 export {
   bucket,
+  deleteObject,
   deletePrefix,
   getObjectBytes,
   getSignedReadUrl,

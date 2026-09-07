@@ -197,6 +197,16 @@ export async function getSignedUploadUrl(
  * Delete everything under a prefix. Account deletion is one call to this with
  * `u/{userId}/`, which is the reason keys are shaped the way they are.
  */
+/** One object, by key. Used when a single asset is removed. */
+export async function deleteObject(key: string): Promise<void> {
+  await s3().send(
+    new DeleteObjectsCommand({
+      Bucket: bucket(),
+      Delete: { Objects: [{ Key: key }] },
+    }),
+  );
+}
+
 export async function deletePrefix(prefix: string): Promise<number> {
   let deleted = 0;
   let continuationToken: string | undefined;

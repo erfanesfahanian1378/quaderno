@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { NotePageEditor } from "@/components/editor/NotePageEditor";
+import { AudioAttachment } from "@/components/editor/AudioAttachment";
 import { cn } from "@/lib/cn";
 import type { ViewerLeaf } from "./Viewer";
 
@@ -18,10 +19,13 @@ export function NotePageView({
   leaf,
   scale,
   label,
+  languageCode,
 }: {
   leaf: ViewerLeaf;
   scale: number;
   label: string;
+  /** For read-aloud on the recorder. Omitted on the read-only shared view. */
+  languageCode?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(leaf.notePage?.content ?? "");
@@ -69,6 +73,20 @@ export function NotePageView({
           </div>
         )}
       </article>
+
+      {/*
+        Recording lives UNDER the sheet, not on it. The page is a real page —
+        fixed size, same shadow as a handout page — and putting a control
+        inside it would either overflow or make it not a page any more.
+      */}
+      {editing && leaf.notePage && languageCode ? (
+        <div data-print-hide="" className="w-full" style={{ maxWidth: width }}>
+          <AudioAttachment
+            notePageId={leaf.notePage.id}
+            languageCode={languageCode}
+          />
+        </div>
+      ) : null}
 
       <span data-print-hide="" className="text-caption text-ink-3">
         {label}

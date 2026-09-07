@@ -90,6 +90,20 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
   "rate-limit.reset": "infrastructure: keyed by IP or email, pre-session",
   "rate-limit.sweep": "infrastructure: sweeps every key by design",
   "audit.record": "infrastructure: writes the userId it is told to record",
+
+  /*
+   * Share links. These two are the only functions in the system that read
+   * without a session, and they are the reason tests/security/share-links
+   * .spec.ts exists.
+   *
+   * `resolveToken` takes the token as its credential and RETURNS the owner's
+   * userId — it is what produces a ctx, so it cannot take one. Everything the
+   * public route reads afterwards goes through the ordinary scoped
+   * repositories with that ctx. `recordView` increments a counter on a row
+   * already resolved by id and reads nothing.
+   */
+  "share-link.resolveToken": "the token is the credential; it returns the ctx",
+  "share-link.recordView": "increments a counter on an already-resolved row",
 };
 
 let available = false;

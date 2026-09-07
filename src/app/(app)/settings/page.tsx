@@ -8,6 +8,8 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { LanguageSettings } from "@/components/settings/LanguageSettings";
 import { HighlighterLabels } from "@/components/settings/HighlighterLabels";
 import { SignOutButton } from "@/components/settings/SignOutButton";
+import { SharedLinks } from "@/components/settings/SharedLinks";
+import * as shareLinks from "@/server/repositories/share-link";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -15,10 +17,11 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const ctx = await requireUserPage("/settings");
 
-  const [user, list, goals] = await Promise.all([
+  const [user, list, goals, shared] = await Promise.all([
     users.findById(ctx),
     languages.list(ctx, { includeArchived: true }),
     study.goals(ctx),
+    shareLinks.listAll(ctx),
   ]);
   if (!user) notFound();
 
@@ -77,6 +80,22 @@ export default async function SettingsPage() {
           </div>
           <ThemeToggle />
         </Card>
+      </Section>
+
+      <Section
+        title="Shared links"
+        note="Anyone with one of these links can read that document without signing in."
+      >
+        <SharedLinks
+          initial={shared.map((link) => ({
+            id: link.id,
+            token: link.token,
+            documentTitle: link.documentTitle,
+            viewCount: link.viewCount,
+            expiresAt: link.expiresAt?.toISOString() ?? null,
+            createdAt: link.createdAt.toISOString(),
+          }))}
+        />
       </Section>
 
       <Section title="Storage">

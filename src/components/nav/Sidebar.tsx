@@ -12,6 +12,7 @@ import {
   HomeIcon,
   PlusIcon,
   SearchIcon,
+  CardsIcon,
   SettingsIcon,
 } from "./icons";
 
@@ -23,7 +24,14 @@ export type SidebarLanguage = {
 };
 
 /** Persistent 240px left sidebar on desktop. Sits outside the content grid. */
-export function Sidebar({ languages }: { languages: SidebarLanguage[] }) {
+export function Sidebar({
+  languages,
+  dueCount = 0,
+}: {
+  languages: SidebarLanguage[];
+  /** Cards due today. Rendered as a badge — the reason to open the app. */
+  dueCount?: number;
+}) {
   const pathname = usePathname();
 
   return (
@@ -47,6 +55,15 @@ export function Sidebar({ languages }: { languages: SidebarLanguage[] }) {
         <NavLink href="/search" active={pathname.startsWith("/search")}>
           <SearchIcon />
           Search
+        </NavLink>
+        <NavLink href="/review" active={pathname.startsWith("/review")}>
+          <CardsIcon />
+          Review
+          {dueCount > 0 ? (
+            <span className="ml-auto rounded-full bg-accent/15 px-1.5 py-0.5 text-caption text-accent">
+              {dueCount > 99 ? "99+" : dueCount}
+            </span>
+          ) : null}
         </NavLink>
         <NavLink href="/study" active={pathname.startsWith("/study")}>
           <ClockIcon />

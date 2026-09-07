@@ -14,6 +14,7 @@ const PROTECTED = [
   "/l/",
   "/d/",
   "/study",
+  "/review",
   "/settings",
   "/onboarding",
 ];

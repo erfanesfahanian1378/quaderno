@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui";
 import { CommentThread, type CommentRow } from "./comments/CommentThread";
 import { cn } from "@/lib/cn";
 import { OfflineToggle } from "@/components/library/OfflineToggle";
+import { ShareLinks } from "./ShareLinks";
 import {
   HIGHLIGHT_DEFAULT_LABELS,
   HIGHLIGHT_KEYS,
@@ -265,6 +266,10 @@ export function RightRail({
               </div>
             ) : null}
             <OfflineToggle documentId={doc.id} className="-ml-2 self-start" />
+
+            <div className="mt-1 border-t border-hairline pt-3">
+              <ShareLinks documentId={doc.id} />
+            </div>
 
             <a
               href={`/api/documents/${doc.id}/original-url`}

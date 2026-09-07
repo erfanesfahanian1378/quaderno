@@ -55,3 +55,30 @@ export async function update(
     select: FIELDS,
   });
 }
+
+/**
+ * The language this page belongs to, resolved through its leaf's document.
+ *
+ * Review cards carry a languageId so the due counts can be split per
+ * language; a note page has no direct link to one.
+ */
+export async function contextOf(
+  ctx: Ctx,
+  id: string,
+): Promise<{ languageId: string | null; documentId: string } | null> {
+  const page = await prisma.notePage.findFirst({
+    where: { id, leaf: { document: { userId: ctx.userId, deletedAt: null } } },
+    select: {
+      leaf: {
+        select: { document: { select: { id: true, languageId: true } } },
+      },
+    },
+  });
+  // A note page with no leaf belongs to no document, so there is nothing to
+  // scope a card or an asset to.
+  if (!page?.leaf) return null;
+  return {
+    languageId: page.leaf.document.languageId,
+    documentId: page.leaf.document.id,
+  };
+}

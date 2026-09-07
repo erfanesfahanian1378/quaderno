@@ -250,3 +250,13 @@ export function CopyIcon({ className }: IconProps) {
     </Svg>
   );
 }
+
+/** Two stacked cards — review. */
+export function CardsIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="3" y="6" width="13" height="12" rx="2" />
+      <path d="M8 4h10a2 2 0 0 1 2 2v10" />
+    </Svg>
+  );
+}

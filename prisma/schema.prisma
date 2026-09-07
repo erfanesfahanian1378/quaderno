@@ -35,18 +35,22 @@ model User {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  accounts        Account[]
-  sessions        Session[]
-  languages       Language[]
-  courses         Course[]
-  classSessions   ClassSession[]
+  accounts         Account[]
+  sessions         Session[]
+  languages        Language[]
+  courses          Course[]
+  classSessions    ClassSession[]
   scheduledClasses ScheduledClass[]
-  documents       Document[]
-  annotations     Annotation[]
-  comments        Comment[]
-  studySessions   StudySession[]
-  weeklyGoals     WeeklyGoal[]
-  dayAggregates   StudyDayAggregate[]
+  documents        Document[]
+  annotations      Annotation[]
+  comments         Comment[]
+  studySessions    StudySession[]
+  weeklyGoals      WeeklyGoal[]
+  dayAggregates    StudyDayAggregate[]
+  reviewCards      ReviewCard[]
+  reviewLogs       ReviewLog[]
+  shareLinks       ShareLink[]
+  noteAssets       NoteAsset[]
 
   @@index([deletedAt])
 }
@@ -97,11 +101,11 @@ model Language {
   id     String @id @default(cuid())
   userId String
 
-  code       String // ISO 639-1: "it", "fr"
-  name       String // display name, user-editable: "Italiano"
-  accentKey  String @default("accent-1") // design-token key, never a hex value
-  cefrLevel  String? // A1 A2 B1 B2 C1 C2
-  position   Int     @default(0)
+  code      String // ISO 639-1: "it", "fr"
+  name      String // display name, user-editable: "Italiano"
+  accentKey String  @default("accent-1") // design-token key, never a hex value
+  cefrLevel String? // A1 A2 B1 B2 C1 C2
+  position  Int     @default(0)
 
   archivedAt DateTime?
   createdAt  DateTime  @default(now())
@@ -115,6 +119,7 @@ model Language {
   studySessions    StudySession[]
   weeklyGoals      WeeklyGoal[]
   dayAggregates    StudyDayAggregate[]
+  reviewCards      ReviewCard[]
 
   @@unique([userId, code])
   @@index([userId, archivedAt])
@@ -177,6 +182,13 @@ model ScheduledClass {
 
 /// One concrete lesson on one date. Materials and study time hang off it.
 model ClassSession {
+  /// Postgres GENERATED column, created in 20260907010000_search — accent-folded
+  /// and lowercased, with a pg_trgm GIN index over it. Declared here only so
+  /// `migrate dev` does not see it as drift and offer to drop it, taking search
+  /// with it. `@ignore` keeps it out of the client: writing a generated column
+  /// is an error, and the repositories read it through raw SQL anyway.
+  searchText String? @ignore @db.Text
+
   id               String  @id @default(cuid())
   userId           String
   languageId       String
@@ -220,6 +232,13 @@ enum DocumentStatus {
 }
 
 model Document {
+  /// Postgres GENERATED column, created in 20260907010000_search — accent-folded
+  /// and lowercased, with a pg_trgm GIN index over it. Declared here only so
+  /// `migrate dev` does not see it as drift and offer to drop it, taking search
+  /// with it. `@ignore` keeps it out of the client: writing a generated column
+  /// is an error, and the repositories read it through raw SQL anyway.
+  searchText String? @ignore @db.Text
+
   id             String  @id @default(cuid())
   userId         String
   languageId     String
@@ -231,10 +250,10 @@ model Document {
   status DocumentStatus @default(PENDING)
 
   /// Denormalised count of non-hidden leaves. Maintained by the leaf service.
-  leafCount    Int      @default(0)
+  leafCount    Int       @default(0)
   thumbnailKey String?
-  tags         String[] @default([])
-  starred      Boolean  @default(false)
+  tags         String[]  @default([])
+  starred      Boolean   @default(false)
   lastOpenedAt DateTime?
 
   createdAt DateTime  @default(now())
@@ -251,6 +270,7 @@ model Document {
   annotations   Annotation[]
   comments      Comment[]
   studySessions StudySession[]
+  shareLinks    ShareLink[]
 
   @@index([userId, languageId, deletedAt])
   @@index([userId, lastOpenedAt])
@@ -290,7 +310,7 @@ model SourceFile {
 
 enum LeafKind {
   SOURCE_PAGE // one page of SourceFile.pdf
-  NOTE_PAGE   // a page the user wrote in-app
+  NOTE_PAGE // a page the user wrote in-app
 }
 
 /// A document is an ORDERED LIST OF LEAVES. This is what lets the user drop
@@ -307,7 +327,7 @@ model Leaf {
   kind            LeafKind
   sourceFileId    String? // required when kind = SOURCE_PAGE
   sourcePageIndex Int? //    0-based page in that file's PDF
-  notePageId      String? @unique // required when kind = NOTE_PAGE
+  notePageId      String?  @unique // required when kind = NOTE_PAGE
 
   label    String? // user-visible page label, e.g. "Grammatica — passato prossimo"
   rotation Int     @default(0) // 0 | 90 | 180 | 270, view-only
@@ -327,6 +347,13 @@ model Leaf {
 }
 
 model NotePage {
+  /// Postgres GENERATED column, created in 20260907010000_search — accent-folded
+  /// and lowercased, with a pg_trgm GIN index over it. Declared here only so
+  /// `migrate dev` does not see it as drift and offer to drop it, taking search
+  /// with it. `@ignore` keeps it out of the client: writing a generated column
+  /// is an error, and the repositories read it through raw SQL anyway.
+  searchText String? @ignore @db.Text
+
   id String @id @default(cuid())
 
   format      String @default("markdown")
@@ -340,7 +367,9 @@ model NotePage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  leaf Leaf?
+  leaf        Leaf?
+  reviewCards ReviewCard[]
+  assets      NoteAsset[]
 }
 
 // ---------------------------------------------------------------------------
@@ -361,6 +390,13 @@ enum AnnotationKind {
 /// [0,1] relative to the page's un-rotated CropBox, origin top-left.
 /// Never store device pixels. See docs/ANNOTATION_ENGINE.md.
 model Annotation {
+  /// Postgres GENERATED column, created in 20260907010000_search — accent-folded
+  /// and lowercased, with a pg_trgm GIN index over it. Declared here only so
+  /// `migrate dev` does not see it as drift and offer to drop it, taking search
+  /// with it. `@ignore` keeps it out of the client: writing a generated column
+  /// is an error, and the repositories read it through raw SQL anyway.
+  searchText String? @ignore @db.Text
+
   id         String @id @default(cuid())
   userId     String
   documentId String
@@ -387,9 +423,9 @@ model Annotation {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? // soft delete so offline clients can reconcile
 
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  document Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  leaf     Leaf       @relation(fields: [leafId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  leaf     Leaf      @relation(fields: [leafId], references: [id], onDelete: Cascade)
   comments Comment[]
 
   @@unique([userId, clientId])
@@ -398,6 +434,13 @@ model Annotation {
 }
 
 model Comment {
+  /// Postgres GENERATED column, created in 20260907010000_search — accent-folded
+  /// and lowercased, with a pg_trgm GIN index over it. Declared here only so
+  /// `migrate dev` does not see it as drift and offer to drop it, taking search
+  /// with it. `@ignore` keeps it out of the client: writing a generated column
+  /// is an error, and the repositories read it through raw SQL anyway.
+  searchText String? @ignore @db.Text
+
   id           String  @id @default(cuid())
   userId       String
   documentId   String
@@ -530,14 +573,14 @@ model RateLimit {
 /// A queued export. The browser does most exports (ANNOTATION_ENGINE §8);
 /// this row exists for the server-side fallback past 150 leaves.
 model Export {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   userId     String
   documentId String
 
   flavour    String // flattened | layered | notes-only
-  status     String   @default("PENDING") // PENDING | RUNNING | READY | FAILED
+  status     String  @default("PENDING") // PENDING | RUNNING | READY | FAILED
   storageKey String?
-  error      String?  @db.Text
+  error      String? @db.Text
 
   createdAt   DateTime  @default(now())
   completedAt DateTime?
@@ -558,4 +601,142 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// The study loop — PHASE-15
+// ---------------------------------------------------------------------------
+
+/**
+ * One row of a vocabulary table, scheduled.
+ * There is no card editor and never should be: the table on the note page is
+ * the source of truth and the learner keeps editing it. `rowKey` is what makes
+ * that survivable — see src/server/services/review/parse.ts.
+ */
+model ReviewCard {
+  id         String  @id @default(cuid())
+  userId     String
+  notePageId String
+  languageId String?
+
+  /// Position in the table when last synced. Used only to re-match a row
+  /// whose front text was edited; never as the primary identity.
+  row    Int
+  /// Normalised front text. Stable across edits to the rest of the row.
+  rowKey String
+
+  front   String  @db.Text
+  back    String  @db.Text
+  example String? @db.Text
+  note    String? @db.Text
+
+  // --- SM-2 state -------------------------------------------------------
+  /// Ease factor. Starts at 2.5, floors at 1.3.
+  ease         Float     @default(2.5)
+  intervalDays Int       @default(0)
+  reps         Int       @default(0)
+  lapses       Int       @default(0)
+  /// Day key (YYYY-MM-DD) in the user's zone. A date, not an instant: "due
+  /// today" is a calendar question and storing a timestamp makes it a
+  /// timezone question instead.
+  dueOn        String
+  lastGradedAt DateTime?
+
+  /// Set when the row leaves the table. The card and its history are kept, so
+  /// restoring the row restores the schedule.
+  retiredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notePage NotePage    @relation(fields: [notePageId], references: [id], onDelete: Cascade)
+  language Language?   @relation(fields: [languageId], references: [id], onDelete: SetNull)
+  logs     ReviewLog[]
+
+  @@unique([notePageId, rowKey])
+  @@index([userId, dueOn])
+  @@index([userId, languageId, dueOn])
+  @@index([notePageId])
+}
+
+model ReviewLog {
+  id     String @id @default(cuid())
+  userId String
+  cardId String
+
+  /// again | hard | good | easy
+  grade          String
+  /// Interval before and after, so a scheduling change can be explained.
+  intervalBefore Int
+  intervalAfter  Int
+  easeAfter      Float
+  /// Milliseconds from reveal to grade. Null when it was not measured.
+  elapsedMs      Int?
+
+  createdAt DateTime @default(now())
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card ReviewCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([cardId, createdAt])
+}
+
+/**
+ * A read-only link to one document.
+ * The token resolves to the OWNER's userId, and every repository call the
+ * public route makes is scoped to that user exactly as an authenticated one
+ * would be. There is no "public" branch in the repository layer.
+ */
+model ShareLink {
+  id         String @id @default(cuid())
+  userId     String
+  documentId String
+
+  /// Random, url-safe, and the only credential. Unique so a lookup is a
+  /// single indexed read.
+  token String @unique
+
+  label      String?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  viewCount  Int       @default(0)
+  lastSeenAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([documentId])
+}
+
+/**
+ * A recorded clip attached to a note page.
+ * `getUserMedia` needs a secure context, so recording does not work over a
+ * plain-http LAN address — the same rule that governs crypto.randomUUID and
+ * service workers.
+ */
+model NoteAsset {
+  id         String @id @default(cuid())
+  userId     String
+  notePageId String
+  documentId String
+
+  kind       String  @default("AUDIO") // AUDIO
+  storageKey String
+  mimeType   String
+  byteSize   Int
+  durationMs Int?
+  label      String?
+
+  createdAt DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notePage NotePage @relation(fields: [notePageId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([notePageId])
 }

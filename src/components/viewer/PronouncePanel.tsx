@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { useSpeech } from "@/lib/speech";
 
 /**
  * Read-aloud, for practising pronunciation.
@@ -36,74 +37,19 @@ export function PronouncePanel({
 }) {
   const [text, setText] = useState(initialText);
   const [rate, setRate] = useState(0.8);
-  const [speaking, setSpeaking] = useState(false);
-  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
-  const [supported, setSupported] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Voice picking, the utterance lifecycle and the cancel-before-speak rule
+  // all live in the hook — the review card needs exactly the same behaviour.
+  const { speak, cancel, speaking, supported, voice } = useSpeech(languageCode);
 
   useEffect(() => {
     if (open) setText(initialText);
   }, [open, initialText]);
 
-  /**
-   * Voices load asynchronously and the first call often returns an empty
-   * list, so the `voiceschanged` event has to be listened for. Skipping this
-   * is why "no voices available" is such a common bug report.
-   */
   useEffect(() => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setSupported(false);
-      return;
-    }
-
-    const pick = () => {
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length === 0) return;
-
-      const exact = voices.filter((candidate) =>
-        candidate.lang.toLowerCase().startsWith(languageCode.toLowerCase()),
-      );
-
-      // Prefer a local voice: it works offline and has no network latency,
-      // which matters when you are tapping a word repeatedly to drill it.
-      const best =
-        exact.find((candidate) => candidate.localService) ?? exact[0] ?? null;
-
-      setVoice(best);
-    };
-
-    pick();
-    window.speechSynthesis.addEventListener("voiceschanged", pick);
-    return () =>
-      window.speechSynthesis.removeEventListener("voiceschanged", pick);
-  }, [languageCode]);
-
-  const speak = useCallback(
-    (value: string, atRate: number) => {
-      const trimmed = value.trim();
-      if (!trimmed || !("speechSynthesis" in window)) return;
-
-      // Cancel first: queued utterances stack up if you tap repeatedly, and
-      // drilling a word means tapping repeatedly.
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(trimmed);
-      utterance.lang = voice?.lang ?? languageCode;
-      if (voice) utterance.voice = voice;
-      utterance.rate = atRate;
-
-      utterance.onstart = () => setSpeaking(true);
-      utterance.onend = () => setSpeaking(false);
-      utterance.onerror = () => setSpeaking(false);
-
-      window.speechSynthesis.speak(utterance);
-    },
-    [languageCode, voice],
-  );
-
-  useEffect(() => {
-    if (!open) window.speechSynthesis?.cancel();
-  }, [open]);
+    if (!open) cancel();
+  }, [open, cancel]);
 
   if (!open) return null;
 
