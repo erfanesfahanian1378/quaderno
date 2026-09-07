@@ -256,8 +256,8 @@ Enforcement:
 storage (Cloudflare R2 or Backblaze B2) so the VPS disk only holds Postgres.
 
 - Images are multi-stage; the runtime image is `node:22-slim` plus
-  `libreoffice-core`, `libreoffice-writer`, `libreoffice-impress`, `qpdf` and
-  fonts — **only in the worker image**. The web image stays slim.
+  `libreoffice-core`, `libreoffice-writer`, `libreoffice-impress`, `qpdf`,
+  `poppler-utils` (page-1 thumbnails) and fonts — **only in the worker image**. The web image stays slim.
 - Migrations run as a one-shot `web` command before the server starts, guarded
   by a Postgres advisory lock so two instances cannot race.
 - Backups: nightly `pg_dump | zstd` to the object store, 14 daily + 8 weekly,

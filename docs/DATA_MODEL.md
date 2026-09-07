@@ -118,7 +118,7 @@ Blobs never live in Postgres. `storageKey` is an S3-style object key:
 ```
 u/{userId}/d/{documentId}/src/{sourceFileId}/original{ext}
 u/{userId}/d/{documentId}/src/{sourceFileId}/normalised.pdf
-u/{userId}/d/{documentId}/thumb/{leafId}.webp
+u/{userId}/d/{documentId}/thumb/{leafId}.png
 u/{userId}/export/{exportId}.pdf
 ```
 

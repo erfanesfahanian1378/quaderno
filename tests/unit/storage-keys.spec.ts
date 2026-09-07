@@ -23,7 +23,7 @@ describe("storage keys", () => {
       `u/${USER}/d/${DOC}/src/${SRC}/normalised.pdf`,
     );
     expect(thumbnailKey(USER, DOC, LEAF)).toBe(
-      `u/${USER}/d/${DOC}/thumb/${LEAF}.webp`,
+      `u/${USER}/d/${DOC}/thumb/${LEAF}.png`,
     );
     expect(exportKey(USER, "clx1exp00000000000000000")).toBe(
       `u/${USER}/export/clx1exp00000000000000000.pdf`,

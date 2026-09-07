@@ -98,7 +98,8 @@ export function thumbnailKey(
   documentId: string,
   leafId: string,
 ): string {
-  return `${documentPrefix(userId, documentId)}thumb/${assertId(leafId, "leafId")}.webp`;
+  // PNG because that is what pdftocairo produces and what an <img> can show.
+  return `${documentPrefix(userId, documentId)}thumb/${assertId(leafId, "leafId")}.png`;
 }
 
 export function exportKey(userId: string, exportId: string): string {

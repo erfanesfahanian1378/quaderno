@@ -77,7 +77,7 @@ VPS, so self-hosting it costs about what a coffee does.
 | Auth       | Auth.js v5, argon2id, DB sessions                      | No third-party dependency, no per-MAU bill       |
 | Storage    | S3-compatible (MinIO local, R2/B2 in prod)             | Blobs off the VPS disk                           |
 | Jobs       | pg-boss on the same Postgres                           | No Redis — saves ~150 MB RSS                     |
-| Conversion | LibreOffice headless, qpdf, ocrmypdf, sharp            | Spawned per job, never resident                  |
+| Conversion | LibreOffice headless, qpdf, ocrmypdf, poppler         | Spawned per job, never resident                  |
 | PDF        | pdf.js (view) + pdf-lib (export, in-browser)           | The server never rasterises a page               |
 | UI         | Tailwind CSS 4, Radix primitives, custom design system | See `docs/DESIGN_BRIEF.md`                       |
 | Charts     | visx / Recharts                                        | Small, composable                                |
@@ -105,6 +105,8 @@ Requires Node 22+, pnpm 9+, Docker. Outside Docker the worker also needs:
 ```bash
 brew install --cask libreoffice     # .docx / .pptx conversion
 brew install qpdf ocrmypdf          # PDF repair, and OCR for scans
+brew install poppler                # pdftocairo, for page-1 thumbnails
+                                    # (ocrmypdf pulls it in anyway)
 brew install tesseract-lang         # OCR language packs — Homebrew's
                                     # tesseract ships English only
 ```

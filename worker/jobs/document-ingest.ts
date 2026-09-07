@@ -1,5 +1,4 @@
 import type PgBoss from "pg-boss";
-import { PDFDocument } from "pdf-lib";
 import { QUEUES } from "../queue";
 import {
   ConversionError,
@@ -14,6 +13,7 @@ import * as documents from "../../src/server/repositories/document";
 import * as leaves from "../../src/server/repositories/leaf";
 import { getObjectBytes, putObject } from "../../src/server/storage";
 import { normalisedPdfKey, thumbnailKey } from "../../src/server/storage/keys";
+import { renderFirstPagePng, thumbnailAvailable } from "../lib/thumbnail";
 import {
   detectKind,
   conversionEngineFor,
@@ -162,13 +162,11 @@ export async function ingest(payload: IngestPayload): Promise<void> {
 }
 
 /**
- * The page-1 thumbnail. This is the ONLY server-side rasterisation in the
- * product (ARCHITECTURE.md §2) — keep it that way.
+ * The page-1 thumbnail.
  *
- * pdf.js would be needed to rasterise properly, and running it in the worker
- * costs more than it is worth here, so this extracts page 1 into a
- * single-page PDF and stores it; the client renders it. If a real raster is
- * wanted later, it belongs in this one function and nowhere else.
+ * A real PNG. The rasterisation itself lives in worker/lib/thumbnail.ts, and
+ * that file explains why this is the one place in the product that rasterises
+ * on the server.
  */
 async function renderThumbnail(
   pdf: Uint8Array,
@@ -177,28 +175,28 @@ async function renderThumbnail(
   log: string[],
 ): Promise<void> {
   try {
-    const source = await PDFDocument.load(pdf, { ignoreEncryption: true });
-    const single = await PDFDocument.create();
-    const [firstPage] = await single.copyPages(source, [0]);
-    if (!firstPage) return;
-    single.addPage(firstPage);
-
     const firstLeaf = await leaves.firstLeafId(documentId);
     if (!firstLeaf) return;
 
-    await putObject(
-      thumbnailKey(userId, documentId, firstLeaf).replace(/\.webp$/, ".pdf"),
-      await single.save(),
-      { contentType: "application/pdf" },
-    );
-    await documents.setThumbnailKey(
-      documentId,
-      thumbnailKey(userId, documentId, firstLeaf).replace(/\.webp$/, ".pdf"),
-    );
-    log.push("thumbnail: page 1 extracted");
+    const png = await renderFirstPagePng(pdf);
+    if (!png) {
+      // Missing poppler, an encrypted PDF, a timeout. The tile falls back to
+      // a file icon, which is a fair description of what we know.
+      log.push(
+        (await thumbnailAvailable())
+          ? "thumbnail: pdftocairo produced nothing"
+          : "thumbnail: pdftocairo not on PATH",
+      );
+      return;
+    }
+
+    const key = thumbnailKey(userId, documentId, firstLeaf);
+    await putObject(key, png, { contentType: "image/png" });
+    await documents.setThumbnailKey(documentId, key);
+    log.push(`thumbnail: page 1 rendered (${png.length} bytes)`);
   } catch (error) {
-    // A missing thumbnail is a cosmetic problem; it must never fail an ingest
-    // that otherwise succeeded.
+    // A missing thumbnail is cosmetic; it must never fail an ingest that
+    // otherwise succeeded.
     log.push(`thumbnail failed (non-fatal): ${String(error)}`);
   }
 }
