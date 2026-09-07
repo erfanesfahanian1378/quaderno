@@ -21,6 +21,7 @@ const CARD_FIELDS = {
   languageId: true,
   courseId: true,
   classSessionId: true,
+  folderId: true,
   title: true,
   origin: true,
   status: true,
@@ -38,6 +39,7 @@ export type DocumentCard = {
   languageId: string;
   courseId: string | null;
   classSessionId: string | null;
+  folderId: string | null;
   title: string;
   origin: "UPLOAD" | "NATIVE";
   status: "PENDING" | "CONVERTING" | "READY" | "FAILED";
@@ -57,6 +59,8 @@ export type ListFilter = {
   tag?: string | undefined;
   starred?: boolean | undefined;
   query?: string | undefined;
+  /** `null` is the language's top level; `undefined` is every folder. */
+  folderId?: string | null | undefined;
 };
 
 export async function list(
@@ -82,6 +86,12 @@ export async function list(
         ? { classSessionId: filter.classSessionId }
         : {}),
       ...(filter.tag ? { tags: { has: filter.tag } } : {}),
+      /*
+       * `folderId: null` means the top level and is a real filter, so it is
+       * checked with `!== undefined` rather than for truthiness — the usual
+       * shorthand would silently show the whole language at the root.
+       */
+      ...(filter.folderId !== undefined ? { folderId: filter.folderId } : {}),
       ...(filter.starred != null ? { starred: filter.starred } : {}),
       ...(filter.query
         ? { title: { contains: filter.query, mode: "insensitive" as const } }
@@ -202,6 +212,7 @@ export async function update(
     starred?: boolean | undefined;
     courseId?: string | null | undefined;
     classSessionId?: string | null | undefined;
+    folderId?: string | null | undefined;
   },
 ): Promise<DocumentCard | null> {
   const result = await prisma.document.updateMany({

@@ -59,6 +59,7 @@ export default async function DocumentPage({
         languageAccent: language?.accentKey ?? "accent-1",
         languageCode: language?.code ?? "en",
         hasTextLayer: primary?.hasTextLayer ?? true,
+        hasSource: Boolean(primary?.pdfStorageKey),
         leafCount: full.leaves.length,
         conversionEngine: primary?.conversionEngine ?? null,
         originalName: primary?.originalName ?? null,

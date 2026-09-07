@@ -51,6 +51,7 @@ model User {
   reviewLogs       ReviewLog[]
   shareLinks       ShareLink[]
   noteAssets       NoteAsset[]
+  folders          Folder[]
 
   @@index([deletedAt])
 }
@@ -120,6 +121,7 @@ model Language {
   weeklyGoals      WeeklyGoal[]
   dayAggregates    StudyDayAggregate[]
   reviewCards      ReviewCard[]
+  folders          Folder[]
 
   @@unique([userId, code])
   @@index([userId, archivedAt])
@@ -251,6 +253,8 @@ model Document {
   languageId     String
   courseId       String?
   classSessionId String?
+  /// Null means the language's top level, not "no folder".
+  folderId       String?
 
   title  String
   origin DocumentOrigin
@@ -278,6 +282,7 @@ model Document {
   comments      Comment[]
   studySessions StudySession[]
   shareLinks    ShareLink[]
+  folder        Folder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   @@index([userId, languageId, deletedAt])
   @@index([userId, lastOpenedAt])
@@ -746,4 +751,42 @@ model NoteAsset {
 
   @@index([userId, createdAt])
   @@index([notePageId])
+}
+
+/**
+ * A folder in the library.
+ * Scoped to a language, because that is already how the library is divided
+ * and a folder that spanned two languages would have no home in the sidebar.
+ * Nested via `parentId`, with a depth cap enforced in the service — the data
+ * model happily allows a thousand levels and no interface can show them.
+ * Deleting a folder never deletes what is inside it: children and documents
+ * move up to the parent. Losing a term's handouts to a mis-tapped delete is
+ * not a recoverable mistake for the person it happens to.
+ */
+model Folder {
+  id         String  @id @default(cuid())
+  userId     String
+  languageId String
+  parentId   String?
+
+  name String
+
+  /// Manual ordering within the parent. Folders sort before documents.
+  position Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language  Language   @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  /// SetNull, deliberately. The service reparents children onto the deleted
+  /// folder's own parent, but if anything ever deletes a folder row directly,
+  /// the worst case must be children appearing at the top level — never a
+  /// subtree of a term's work disappearing with one tap.
+  parent    Folder?    @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Folder[]   @relation("FolderTree")
+  documents Document[]
+
+  @@index([userId, languageId, parentId])
+  @@index([parentId])
 }

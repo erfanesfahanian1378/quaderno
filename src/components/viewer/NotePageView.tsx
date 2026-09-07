@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { NotePageEditor } from "@/components/editor/NotePageEditor";
 import { AudioAttachment } from "@/components/editor/AudioAttachment";
+import { Markdown } from "@/components/editor/Markdown";
 import { cn } from "@/lib/cn";
 import type { ViewerLeaf } from "./Viewer";
 
@@ -63,13 +64,16 @@ export function NotePageView({
             className="h-full overflow-hidden px-10 py-10"
             style={{ fontSize: 17 * scale, lineHeight: `${28 * scale}px` }}
           >
-            <div className="whitespace-pre-wrap font-reading text-ink">
-              {content || (
-                <span className="text-ink-3">
-                  An empty page. Click to start writing.
-                </span>
-              )}
-            </div>
+            {content ? (
+              // Rendered, not raw. The editor is markdown by design, but a
+              // vocabulary template shown as pipes and dashes is not a table
+              // anyone can fill in.
+              <Markdown source={content} className="font-reading text-ink" />
+            ) : (
+              <span className="font-reading text-ink-3">
+                An empty page. Click to start writing.
+              </span>
+            )}
           </div>
         )}
       </article>

@@ -54,6 +54,8 @@ export type ViewerDocument = {
   /** ISO 639-1, for picking a read-aloud voice in the right accent. */
   languageCode: string;
   hasTextLayer: boolean;
+  /** False for a notebook: every leaf is a note page, there is no PDF. */
+  hasSource: boolean;
   leafCount: number;
   conversionEngine: string | null;
   originalName: string | null;
@@ -81,6 +83,13 @@ export function Viewer({
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
+
+    /*
+     * A NATIVE document is all note pages and has no source PDF, so asking
+     * for one returns 404 and the viewer showed "Document file not found"
+     * over a notebook that was working perfectly.
+     */
+    if (!doc.hasSource) return;
 
     const load = async () => {
       const result = await api.get<{ url: string; expiresAt: string }>(
@@ -115,7 +124,7 @@ export function Viewer({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [doc.id]);
+  }, [doc.id, doc.hasSource]);
 
   const pdf = usePdfDocument(sourceUrl);
   const getPage = usePageCache(pdf.status === "ready" ? pdf.document : null);
