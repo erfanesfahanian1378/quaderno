@@ -184,21 +184,26 @@ unit-tested.
 
 ### Not built yet
 
-- [ ] OCR is queued as a job but the `ocrmypdf` step is not wired up
-      (`ocrmypdf` itself is installed)
-- [ ] "Layered" export (real editable PDF annotation objects)
-- [ ] Recurring classes and attendance confirmation (`ScheduledClass` exists
-      in the schema; the RRULE expansion does not)
-- [ ] Comments UI — the API and repository are done, the right rail is not
-- [ ] Offline/PWA service worker
-- [ ] Server-side export for documents over 150 leaves
+Each of these is written up as a phase brief in
+[`docs/phases/`](docs/phases), sized for one session, in the same format as
+the nine that are done. The index in
+[`docs/phases/README.md`](docs/phases/README.md) explains the ordering.
+
+| # | Phase | What is missing |
+|---|---|---|
+| [10](docs/phases/PHASE-10-comments.md) | Comments & the revision rail | The API, repository and schema are done; the right rail and the annotations list are not |
+| [11](docs/phases/PHASE-11-ocr.md) | Scanned handouts: OCR | `ocrmypdf` is installed and the queue exists; nothing consumes it |
+| [12](docs/phases/PHASE-12-schedule.md) | The schedule | `ScheduledClass` is in the schema; the RRULE expansion and attendance confirmation are not |
+| [13](docs/phases/PHASE-13-offline.md) | Offline & installable | Writing already survives offline; reading does not |
+| [14](docs/phases/PHASE-14-export.md) | Export, completely | Layered export and server-side export past 150 leaves |
+| [15](docs/phases/PHASE-15-study-loop.md) | The study loop | Spaced repetition, audio attachments, share links, Anki export |
 
 ## Roadmap
 
-- [ ] Spaced-repetition review built from vocabulary-table note pages
-- [ ] Audio attachments on note pages, for pronunciation practice
-- [ ] Shared read-only document links for study partners
-- [ ] Anki export
+The roadmap is [PHASE 15](docs/phases/PHASE-15-study-loop.md): spaced
+repetition built from the vocabulary tables you already fill in, audio
+attachments to compare against the read-aloud voice, shared read-only links,
+and Anki export.
 
 ## License
 
