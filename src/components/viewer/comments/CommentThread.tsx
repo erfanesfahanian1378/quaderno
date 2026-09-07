@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api-client";
-import { cn } from "@/lib/cn";
 import type { HighlightKey } from "@/lib/tokens";
 
 export type CommentRow = {
