@@ -142,8 +142,14 @@ export function Dropzone({
       if (!uploaded) {
         patch(id, {
           state: "error",
-          message: "The upload did not finish. Check your connection.",
+          message:
+            "The upload did not finish — the file never reached storage. Check your connection.",
         });
+
+        // Clean up the row we created at presign time. Leaving it behind
+        // means a card that says "waiting for the file" for ever, for a file
+        // that is never coming.
+        await api.delete(`/api/documents/${presigned.data.documentId}`);
         return;
       }
 

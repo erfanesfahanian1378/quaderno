@@ -27,6 +27,21 @@ const serverSchema = z.object({
   AUTH_GOOGLE_SECRET: z.string().optional(),
 
   S3_ENDPOINT: z.string().url(),
+  /*
+   * The endpoint the BROWSER is given in a presigned URL.
+   *
+   * Usually identical to S3_ENDPOINT, and deliberately separate because they
+   * are not always the same address. In Docker the server reaches MinIO at
+   * http://minio:9000 while the browser must use a published host; on a
+   * developer machine the server uses localhost and a phone on the same wifi
+   * must use the LAN IP. Handing "localhost" to a phone means the phone tries
+   * to upload to itself, the PUT goes nowhere, and the document sits at
+   * PENDING for ever.
+   *
+   * Signed, not rewritten: SigV4 covers the Host header, so a presigned URL
+   * has to be GENERATED against the host that will receive it.
+   */
+  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
   S3_REGION: z.string().default("us-east-1"),
   S3_BUCKET: z.string().min(1),
   S3_ACCESS_KEY_ID: z.string().min(1),

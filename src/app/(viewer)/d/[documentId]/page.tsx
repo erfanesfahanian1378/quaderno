@@ -81,6 +81,7 @@ function NotReady({
   id: string;
 }) {
   const failed = status === "FAILED";
+  const neverArrived = status === "PENDING";
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-[560px] flex-col justify-center gap-5 px-6">
@@ -98,6 +99,23 @@ function NotReady({
             </a>
             <Link href="/library">
               <Button variant="ghost">Back to the library</Button>
+            </Link>
+          </div>
+        </>
+      ) : neverArrived ? (
+        <>
+          {/*
+            PENDING means the bytes never arrived, not that we are busy. Saying
+            "still converting" here is a lie the user cannot act on — they wait
+            for something that is never going to happen.
+          */}
+          <Banner tone="warning">
+            This file never finished uploading, so there is nothing to open yet.
+            Try uploading it again from the library.
+          </Banner>
+          <div className="flex gap-3">
+            <Link href="/library">
+              <Button variant="secondary">Back to the library</Button>
             </Link>
           </div>
         </>

@@ -14,8 +14,16 @@ export function DocumentThumb({
   document: DocumentCard;
   className?: string;
 }) {
-  const converting =
-    document.status === "PENDING" || document.status === "CONVERTING";
+  /*
+   * PENDING and CONVERTING are NOT the same thing and must not look the same.
+   *
+   * PENDING means the row exists but the bytes never arrived — the browser's
+   * upload failed. Showing "converting…" for that is a lie the user cannot
+   * act on: they wait for something that will never happen. It happened for
+   * real when a phone was handed a presigned URL pointing at "localhost".
+   */
+  const uploading = document.status === "PENDING";
+  const converting = document.status === "CONVERTING";
   const failed = document.status === "FAILED";
 
   return (
@@ -51,6 +59,17 @@ export function DocumentThumb({
             </div>
             <p className="text-caption text-ink-2">converting…</p>
           </div>
+        </div>
+      ) : null}
+
+      {uploading ? (
+        <div className="absolute inset-0 grid place-items-center bg-surface/85 px-2 text-center">
+          <p className="text-caption text-ink-2">
+            waiting for the file
+            <span className="mt-1 block text-ink-3">
+              the upload did not finish
+            </span>
+          </p>
         </div>
       ) : null}
 

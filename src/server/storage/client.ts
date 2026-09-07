@@ -26,13 +26,12 @@ export const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes
 const UPLOAD_URL_TTL_SECONDS = 900; // 15 minutes — allows a slow mobile upload
 
 let client: S3Client | null = null;
+let publicClient: S3Client | null = null;
 
-export function s3(): S3Client {
-  if (client) return client;
+function build(endpoint: string): S3Client {
   const config = env();
-
-  client = new S3Client({
-    endpoint: config.S3_ENDPOINT,
+  return new S3Client({
+    endpoint,
     region: config.S3_REGION,
     forcePathStyle: config.S3_FORCE_PATH_STYLE,
     credentials: {
@@ -40,7 +39,32 @@ export function s3(): S3Client {
       secretAccessKey: config.S3_SECRET_ACCESS_KEY,
     },
   });
+}
+
+/** For server-side object access: reads, writes, deletes. */
+export function s3(): S3Client {
+  if (!client) client = build(env().S3_ENDPOINT);
   return client;
+}
+
+/**
+ * For **presigning URLs the browser will use**.
+ *
+ * Signs against S3_PUBLIC_ENDPOINT when it differs from the internal one.
+ * SigV4 covers the Host header, so the URL must be generated against the host
+ * that will actually receive the request — rewriting the host afterwards
+ * invalidates the signature. Handing a browser a URL for an address it cannot
+ * reach (a phone told to upload to "localhost") is a silent failure: the PUT
+ * goes nowhere and the document never leaves PENDING.
+ */
+export function s3Public(): S3Client {
+  if (!publicClient) {
+    const config = env();
+    publicClient = config.S3_PUBLIC_ENDPOINT
+      ? build(config.S3_PUBLIC_ENDPOINT)
+      : s3();
+  }
+  return publicClient;
 }
 
 export function bucket(): string {
@@ -50,6 +74,7 @@ export function bucket(): string {
 /** Test seam. */
 export function __resetS3ForTests(): void {
   client = null;
+  publicClient = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -119,7 +144,7 @@ export async function getSignedReadUrl(
 
   const ttl = options.ttlSeconds ?? SIGNED_URL_TTL_SECONDS;
   const url = await getSignedUrl(
-    s3(),
+    s3Public(),
     new GetObjectCommand({
       Bucket: bucket(),
       Key: key,
@@ -148,7 +173,7 @@ export async function getSignedUploadUrl(
 
   const ttl = options.ttlSeconds ?? UPLOAD_URL_TTL_SECONDS;
   const url = await getSignedUrl(
-    s3(),
+    s3Public(),
     new PutObjectCommand({
       Bucket: bucket(),
       Key: key,
