@@ -7,9 +7,29 @@ import { FormatBar } from "./FormatBar";
 import {
   buildColorMap,
   readSpansFromDom,
+  spansToDom,
   spansToText,
   type TextSpan,
 } from "@/lib/richtext";
+
+/**
+ * Text sizes, as a fraction of PAGE HEIGHT.
+ *
+ * Not pixels: a note has to keep its size relative to the page at every zoom
+ * level and on every screen, which is the same reason coordinates are
+ * normalised. 0.022 is the size every note had before this was choosable.
+ */
+export const TEXT_SIZES = [
+  { key: "S", value: 0.014 },
+  { key: "M", value: 0.022 },
+  { key: "L", value: 0.032 },
+  { key: "XL", value: 0.046 },
+] as const;
+
+export const DEFAULT_TEXT_SIZE = 0.022;
+
+/** A4 in points. The preview's yardstick, so it does not follow the zoom. */
+const REFERENCE_HEIGHT = 842;
 
 /**
  * The one text input the viewer uses for placing a text box or writing a
@@ -28,6 +48,14 @@ import {
 
 export type ComposerKind = "text" | "comment";
 
+export type ComposerSeed = {
+  /** The annotation being edited. Absent when placing a new note. */
+  clientId: string;
+  text: string;
+  spans?: TextSpan[] | undefined;
+  fontSize: number;
+};
+
 export type InlineComposerHandle = {
   /** Called synchronously from a pointerdown handler. */
   open: (options: {
@@ -37,6 +65,8 @@ export type InlineComposerHandle = {
     y: number;
     pageWidth: number;
     pageHeight: number;
+    /** Reopens an existing note rather than placing a new one. */
+    seed?: ComposerSeed | undefined;
   }) => void;
   close: () => void;
 };
@@ -49,8 +79,12 @@ export type ComposerResult = {
   /** Plain text, always. `spans` carries the formatting when there is any. */
   text: string;
   spans?: TextSpan[];
+  /** A fraction of page height. */
+  fontSize: number;
   width: number;
   height: number;
+  /** Set when this replaces an existing note instead of creating one. */
+  editingClientId?: string;
 };
 
 type Position = {
@@ -60,6 +94,7 @@ type Position = {
   y: number;
   pageWidth: number;
   pageHeight: number;
+  editingClientId: string | null;
   /** Viewport coordinates, so the composer floats above the page. */
   left: number;
   top: number;
@@ -83,7 +118,16 @@ export const InlineComposer = forwardRef<
   const editorRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<Position | null>(null);
   const [empty, setEmpty] = useState(true);
+  const [fontSize, setFontSize] = useState<number>(DEFAULT_TEXT_SIZE);
   const positionRef = useRef<Position | null>(null);
+  const fontSizeRef = useRef<number>(DEFAULT_TEXT_SIZE);
+
+  const chooseSize = (value: number) => {
+    fontSizeRef.current = value;
+    setFontSize(value);
+    // Back to the text, so the next keystroke goes where it was going.
+    editorRef.current?.focus();
+  };
 
   useImperativeHandle(ref, () => ({
     open(options) {
@@ -94,20 +138,52 @@ export const InlineComposer = forwardRef<
       const rect = page?.getBoundingClientRect();
 
       const next: Position = {
-        ...options,
+        kind: options.kind,
+        leafId: options.leafId,
+        x: options.x,
+        y: options.y,
+        pageWidth: options.pageWidth,
+        pageHeight: options.pageHeight,
+        editingClientId: options.seed?.clientId ?? null,
         left: (rect?.left ?? 0) + options.x * (rect?.width ?? 0),
         top: (rect?.top ?? 0) + options.y * (rect?.height ?? 0),
       };
 
       positionRef.current = next;
       setPosition(next);
-      setEmpty(true);
+
+      const size = options.seed?.fontSize ?? DEFAULT_TEXT_SIZE;
+      fontSizeRef.current = size;
+      setFontSize(size);
+      setEmpty(!options.seed?.text);
 
       // SYNCHRONOUS. This is the line the whole component exists for.
       const element = editorRef.current;
       if (element) {
         element.textContent = "";
+
+        if (options.seed) {
+          // Reopened for editing: put the existing content back, with its
+          // formatting, so nothing has to be retyped.
+          element.appendChild(
+            options.seed.spans?.length
+              ? spansToDom(options.seed.spans)
+              : document.createTextNode(options.seed.text),
+          );
+        }
+
         element.focus();
+
+        if (options.seed) {
+          // Caret at the end, not the start — editing a note usually means
+          // adding to it.
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          range.collapse(false);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }
       }
     },
     close() {
@@ -118,6 +194,16 @@ export const InlineComposer = forwardRef<
       editorRef.current?.blur();
     },
   }));
+
+  const dismiss = () => {
+    positionRef.current = null;
+    setPosition(null);
+    setEmpty(true);
+    if (editorRef.current) {
+      editorRef.current.textContent = "";
+      editorRef.current.blur();
+    }
+  };
 
   const commit = () => {
     const current = positionRef.current;
@@ -151,8 +237,12 @@ export const InlineComposer = forwardRef<
       y: current.y,
       text,
       ...(formatted ? { spans: trimSpans(spans) } : {}),
+      fontSize: fontSizeRef.current,
       width: element ? element.offsetWidth / current.pageWidth : 0.4,
       height: element ? element.offsetHeight / current.pageHeight : 0.05,
+      ...(current.editingClientId
+        ? { editingClientId: current.editingClientId }
+        : {}),
     });
   };
 
@@ -203,11 +293,7 @@ export const InlineComposer = forwardRef<
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               event.preventDefault();
-              positionRef.current = null;
-              setPosition(null);
-              setEmpty(true);
-              event.currentTarget.textContent = "";
-              event.currentTarget.blur();
+              dismiss();
             }
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
@@ -253,13 +339,54 @@ export const InlineComposer = forwardRef<
            * where you cannot read what you are typing. The swatch below shows
            * which colour it will become once it lands on the page.
            */
+          style={{
+            /*
+             * The editor previews the chosen size, so picking one is a
+             * decision you can see rather than a guess.
+             *
+             * Against a REFERENCE page height, not the live one. Using the
+             * rendered height makes the preview true to the current zoom —
+             * and at 177% that puts XL at nearly 70px inside a 268px popup,
+             * where two words fill the box and the control below is pushed
+             * off. A4 as the reference keeps the four sizes clearly
+             * different from each other and the box usable at any zoom.
+             */
+            fontSize: Math.min(34, Math.max(12, fontSize * REFERENCE_HEIGHT)),
+          }}
           className={cn(
-            "max-h-48 w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent text-body text-ink outline-none",
+            "max-h-48 w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent leading-snug text-ink outline-none",
             // The placeholder, which a contenteditable does not get for free.
             empty &&
               "before:pointer-events-none before:text-ink-3 before:content-[attr(data-placeholder)]",
           )}
         />
+
+        {active && position.kind === "text" ? (
+          <div className="mt-2 flex items-center gap-1 border-t border-hairline pt-2">
+            <span className="mr-1 text-caption text-ink-3">Size</span>
+            {TEXT_SIZES.map((size) => (
+              <button
+                key={size.key}
+                type="button"
+                aria-pressed={fontSize === size.value}
+                // onMouseDown, like the format buttons: onClick lands after
+                // the editor has already lost focus and the caret with it.
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  chooseSize(size.value);
+                }}
+                className={cn(
+                  "h-6 rounded-sm px-2 text-caption transition-colors duration-[120ms]",
+                  fontSize === size.value
+                    ? "bg-accent/15 text-accent"
+                    : "text-ink-2 hover:bg-subtle hover:text-ink",
+                )}
+              >
+                {size.key}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {active ? (
           <FormatBar
@@ -288,6 +415,35 @@ export const InlineComposer = forwardRef<
               <br />
               Esc to discard
             </span>
+
+            {/*
+              A close button as well as Esc. Esc is the fast way on a laptop
+              and no way at all on a phone, where there is no Esc key — and
+              tapping away does not dismiss it either.
+            */}
+            <button
+              type="button"
+              aria-label="Discard"
+              title="Discard"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                dismiss();
+              }}
+              className="grid size-8 shrink-0 place-items-center rounded-sm text-ink-3 hover:bg-subtle hover:text-ink"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+            </button>
+
             <button
               type="button"
               // onMouseDown, not onClick: onClick fires after blur, and by
@@ -298,7 +454,7 @@ export const InlineComposer = forwardRef<
               }}
               className="shrink-0 rounded-sm bg-accent px-3 py-1.5 text-label text-accent-on"
             >
-              Add
+              {position.editingClientId ? "Save" : "Add"}
             </button>
           </div>
         ) : null}

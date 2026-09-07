@@ -280,6 +280,38 @@ export function Viewer({
 
   const onComposerCommit = useCallback(
     (result: ComposerResult) => {
+      if (result.editingClientId) {
+        // Reopened from the page. Same annotation, same position, new
+        // content — creating a second one would leave the original
+        // underneath it.
+        const found = annotations.all.find(
+          (item) => item.clientId === result.editingClientId,
+        );
+        if (found) {
+          /*
+           * `spans` is REMOVED when the edit left no formatting, not set to
+           * an empty array. The schema requires `text` to equal the spans
+           * joined together, so `spans: []` beside a non-empty `text` is
+           * rejected — and spreading the old geometry would otherwise keep
+           * the formatting the author just took off.
+           */
+          const { spans: _previous, ...rest } = found.geometry as Record<
+            string,
+            unknown
+          >;
+
+          annotations.update(found, {
+            geometry: {
+              ...rest,
+              text: result.text,
+              ...(result.spans?.length ? { spans: result.spans } : {}),
+              fontSize: result.fontSize,
+            },
+          });
+        }
+        return;
+      }
+
       if (result.kind === "comment") {
         // A pin carries the note as its own comment thread.
         const pin = annotations.create({
@@ -316,7 +348,7 @@ export function Viewer({
           ...(result.spans && result.spans.length > 0
             ? { spans: result.spans }
             : {}),
-          fontSize: 0.022,
+          fontSize: result.fontSize,
           align: "left",
         },
       });
@@ -356,6 +388,47 @@ export function Viewer({
         if (found) annotations.remove(found);
         return;
       }
+      const found = annotations.all.find(
+        (item) => item.clientId === annotation.clientId,
+      );
+
+      /*
+       * A text note reopens for editing. Only with the select tool: with the
+       * pen out, touching a note means drawing over it, and with the text
+       * tool it would fight placing a new one.
+       */
+      if (found?.kind === "TEXT_BOX" && tool === "select") {
+        const box = found.geometry as unknown as {
+          x: number;
+          y: number;
+          text: string;
+          spans?: { t: string }[];
+          fontSize: number;
+        };
+        // The page's CURRENT rendered size, so the composer previews the
+        // note at the size it will actually be at this zoom.
+        const geometry = geometries.current.get(found.leafId);
+        const size = geometry
+          ? renderedSize(geometry)
+          : { width: 595, height: 842 };
+
+        composerRef.current?.open({
+          kind: "text",
+          leafId: found.leafId,
+          x: box.x,
+          y: box.y,
+          pageWidth: size.width,
+          pageHeight: size.height,
+          seed: {
+            clientId: found.clientId,
+            text: box.text,
+            spans: box.spans as never,
+            fontSize: box.fontSize,
+          },
+        });
+        return;
+      }
+
       setSelectedClientId(annotation.clientId);
     },
     [annotations, tool],

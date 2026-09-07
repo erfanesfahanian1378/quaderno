@@ -245,3 +245,42 @@ function withLineBreaks(root: HTMLElement, spans: TextSpan[]): TextSpan[] {
 
   return out;
 }
+
+/**
+ * Spans → editable DOM, the inverse of `readSpansFromDom`.
+ *
+ * Needed to REOPEN a note for editing: without it, editing a formatted note
+ * would either lose its formatting or force the author to retype it.
+ *
+ * Elements are built, never `innerHTML`, and each one is styled the way
+ * `execCommand` would style it, so a span written here and a span the browser
+ * writes on the next keystroke serialise identically. Colours and fonts are
+ * set as `var(--token)` because computed style resolves them, which is what
+ * the reader maps back to the token key.
+ */
+export function spansToDom(spans: TextSpan[]): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+
+  for (const span of spans) {
+    if (!span.t) continue;
+
+    // An unformatted run is a bare text node. Wrapping it would make the
+    // serialiser see a style boundary that is not there.
+    if (!span.b && !span.i && !span.u && !span.c && !span.f) {
+      fragment.appendChild(document.createTextNode(span.t));
+      continue;
+    }
+
+    const element = document.createElement("span");
+    if (span.b) element.style.fontWeight = "bold";
+    if (span.i) element.style.fontStyle = "italic";
+    if (span.u) element.style.textDecoration = "underline";
+    if (span.c) element.style.color = `var(--${span.c})`;
+    if (span.f) element.style.fontFamily = `var(--font-${span.f})`;
+
+    element.textContent = span.t;
+    fragment.appendChild(element);
+  }
+
+  return fragment;
+}
