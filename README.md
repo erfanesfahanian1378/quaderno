@@ -192,29 +192,42 @@ unit-tested.
       chart, a year heatmap and streaks
 - [x] Search across documents, note pages, highlights, comments and classes,
       ignoring accents
+- [x] Comment on a highlight, resolve the thread, and work through every mark
+      on a document from the right rail
+- [x] Run OCR on a scanned handout and get a real, selectable text layer — the
+      original is never touched, the OCR'd copy is a new object
+- [x] Set a recurring class, confirm or skip an occurrence, and have that feed
+      the dashboard — DST-safe, because the wall time is anchored in the
+      user's own zone
+- [x] Install the app, keep a document for offline reading, and open it in a
+      tunnel — including byte ranges, which is what pdf.js actually asks for
+- [x] Export a layered PDF whose marks stay editable in Acrobat and Preview,
+      queue a server-side export past 150 leaves, and print a document with
+      every page rendered first
+- [x] Fill in a vocabulary table and review it: SM-2 scheduling, four grades
+      with the interval each will produce, and read-aloud on the card
+- [x] Record yourself on a note page and compare it against the reference voice
+- [x] Share a document read-only with a link, see how often it was opened, and
+      revoke it
+- [x] Export any language, document or page as a TSV that Anki imports
 
-### Not built yet
+### Known gaps
 
-Each of these is written up as a phase brief in
-[`docs/phases/`](docs/phases), sized for one session, in the same format as
-the nine that are done. The index in
+Everything in `docs/phases/` is built. What is left is operational rather than
+missing features:
+
+| Area | Where it stands |
+|---|---|
+| Deployment | `docs/RUNBOOK.md` describes the VPS setup; nothing has been deployed to one. The compose file is the local profile only. |
+| `.apkg` export | Anki imports the TSV natively. A real `.apkg` means shipping ~1.5 MB of sql.js to write a SQLite file, and is worth doing only if someone asks. |
+| FSRS | Scheduling is SM-2. Every `ReviewLog` row records the interval and ease on both sides of the grade, which is exactly what FSRS needs as training data if that changes. |
+| Real-time collaboration | Out of scope by design — ARCHITECTURE.md §1 says so, and the local-first write path assumes a single writer. |
+
+## Phase briefs
+
+All fifteen are in [`docs/phases/`](docs/phases), each sized for one session
+and each written before the code it describes. The index in
 [`docs/phases/README.md`](docs/phases/README.md) explains the ordering.
-
-| # | Phase | What is missing |
-|---|---|---|
-| [10](docs/phases/PHASE-10-comments.md) | Comments & the revision rail | The API, repository and schema are done; the right rail and the annotations list are not |
-| [11](docs/phases/PHASE-11-ocr.md) | Scanned handouts: OCR | `ocrmypdf` is installed and the queue exists; nothing consumes it |
-| [12](docs/phases/PHASE-12-schedule.md) | The schedule | `ScheduledClass` is in the schema; the RRULE expansion and attendance confirmation are not |
-| [13](docs/phases/PHASE-13-offline.md) | Offline & installable | Writing already survives offline; reading does not |
-| [14](docs/phases/PHASE-14-export.md) | Export, completely | Layered export and server-side export past 150 leaves |
-| [15](docs/phases/PHASE-15-study-loop.md) | The study loop | Spaced repetition, audio attachments, share links, Anki export |
-
-## Roadmap
-
-The roadmap is [PHASE 15](docs/phases/PHASE-15-study-loop.md): spaced
-repetition built from the vocabulary tables you already fill in, audio
-attachments to compare against the read-aloud voice, shared read-only links,
-and Anki export.
 
 ## License
 

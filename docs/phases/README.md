@@ -1,7 +1,12 @@
 # Build plan
 
-Nine phases, each sized for roughly one Claude Code session. Work them in
-order — every phase assumes the previous ones landed and their tests pass.
+Fifteen phases, each sized for roughly one Claude Code session, each written
+before the code it describes. Work them in order — every phase assumes the
+previous ones landed and their tests pass.
+
+**All fifteen are built.** 01–09 are the product; 10–15 finish the parts that
+09 left as stubs, plus the study loop. What remains is in the "Known gaps"
+table in the root README, and is operational rather than missing features.
 
 | #   | Phase                                              | Ships                                                             |
 | --- | -------------------------------------------------- | ----------------------------------------------------------------- |
@@ -14,6 +19,12 @@ order — every phase assumes the previous ones landed and their tests pass.
 | 07  | [Composition & notes](PHASE-07-composition.md)     | Note pages, templates, reordering, insert-between, export         |
 | 08  | [Study tracking](PHASE-08-study.md)                | Timer, manual log, schedule, goals, charts, heatmap, streaks      |
 | 09  | [Search, hardening, deploy](PHASE-09-hardening.md) | Search, rate limits, perf budgets, backups, runbook               |
+| 10  | [Comments & revision rail](PHASE-10-comments.md)   | Comment threads, the marks list, colour-label filtering           |
+| 11  | [Scanned handouts: OCR](PHASE-11-ocr.md)           | ocrmypdf as a job, a real text layer, the original untouched      |
+| 12  | [The schedule](PHASE-12-schedule.md)               | RRULE expansion, DST-safe wall times, attendance confirmation     |
+| 13  | [Offline & installable](PHASE-13-offline.md)       | Service worker, ranged reads from cache, manifest, install        |
+| 14  | [Export, completely](PHASE-14-export.md)           | Layered PDF, server-side export, printing                         |
+| 15  | [The study loop](PHASE-15-study-loop.md)           | SM-2 review, audio, share links, Anki TSV                         |
 
 ## How to run a phase
 
