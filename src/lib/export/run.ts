@@ -99,6 +99,9 @@ export async function exportDocument(
     title,
     typesetNote: (pdf: PDFDocument, markdown: string) =>
       typesetInto(pdf, markdown, true),
+    // The same live computed styles the annotation colours came from, so a
+    // formatted note exported from dark mode keeps the colours its author saw.
+    resolveToken: (key: string) => toHex(tokens[key] ?? "#1C1B18"),
   });
 
   const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });

@@ -1,9 +1,12 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useRef, useState } from "react";
 import type { PageGeometry } from "../coords";
 import type { Annotation } from "./store";
 import { toSmoothPath, type Point } from "../ink/simplify";
+import { RichText } from "./RichText";
+import type { TextSpan } from "@/lib/richtext";
+import { cn } from "@/lib/cn";
 
 /**
  * Layer 3 of the page stack: every annotation, in one SVG with
@@ -22,11 +25,17 @@ export const AnnotationLayer = memo(function AnnotationLayer({
   annotations,
   geometry,
   onSelect,
+  onMove,
+  movable = false,
   selectedClientId,
 }: {
   annotations: Annotation[];
   geometry: PageGeometry;
   onSelect?: (annotation: Annotation) => void;
+  /** Commit a drag. Absent means marks are not movable here. */
+  onMove?: (annotation: Annotation, x: number, y: number) => void;
+  /** Only true for the select tool — dragging must not fight drawing. */
+  movable?: boolean;
   selectedClientId?: string | null;
 }) {
   // Text boxes are HTML, not SVG: SVG text wrapping is not worth the pain
@@ -57,6 +66,8 @@ export const AnnotationLayer = memo(function AnnotationLayer({
               geometry={geometry}
               selected={annotation.clientId === selectedClientId}
               onSelect={onSelect}
+              onMove={onMove}
+              movable={movable}
             />
           ))}
       </svg>
@@ -66,6 +77,8 @@ export const AnnotationLayer = memo(function AnnotationLayer({
           key={annotation.clientId}
           annotation={annotation}
           onSelect={onSelect}
+          onMove={onMove}
+          movable={movable}
         />
       ))}
     </>
@@ -77,11 +90,15 @@ function AnnotationShape({
   geometry,
   selected,
   onSelect,
+  onMove,
+  movable,
 }: {
   annotation: Annotation;
   geometry: PageGeometry;
   selected: boolean;
   onSelect?: (annotation: Annotation) => void;
+  onMove?: (annotation: Annotation, x: number, y: number) => void;
+  movable: boolean;
 }) {
   const color = `var(--${annotation.color})`;
 
@@ -264,18 +281,15 @@ function AnnotationShape({
       );
     }
 
-    case "COMMENT_PIN": {
-      const pin = annotation.geometry as unknown as { x: number; y: number };
+    case "COMMENT_PIN":
       return (
-        <g
-          className="pointer-events-auto cursor-pointer"
-          onClick={() => onSelect?.(annotation)}
-        >
-          <circle cx={pin.x} cy={pin.y} r={0.012} fill="var(--accent-base)" />
-          <circle cx={pin.x} cy={pin.y} r={0.005} fill="var(--accent-on)" />
-        </g>
+        <CommentPinMark
+          annotation={annotation}
+          onSelect={onSelect}
+          onMove={onMove}
+          movable={movable}
+        />
       );
-    }
 
     default:
       return null;
@@ -314,9 +328,13 @@ function ArrowHead({
 function TextBoxMark({
   annotation,
   onSelect,
+  onMove,
+  movable,
 }: {
   annotation: Annotation;
   onSelect?: (annotation: Annotation) => void;
+  onMove?: (annotation: Annotation, x: number, y: number) => void;
+  movable: boolean;
 }) {
   const box = annotation.geometry as unknown as {
     x: number;
@@ -324,24 +342,45 @@ function TextBoxMark({
     w: number;
     h: number;
     text: string;
+    spans?: TextSpan[];
     fontSize: number;
     align: "left" | "center" | "right";
   };
+
+  const drag = useDragToMove({
+    x: box.x,
+    y: box.y,
+    enabled: movable && !!onMove,
+    onEnd: (x, y) => onMove?.(annotation, x, y),
+  });
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onSelect?.(annotation)}
+      onClick={() => {
+        // A click that ended a drag is not a selection.
+        if (!drag.moved) onSelect?.(annotation);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Enter") onSelect?.(annotation);
       }}
-      className="absolute z-20 cursor-pointer whitespace-pre-wrap break-words"
+      onPointerDown={drag.onPointerDown}
+      onPointerMove={drag.onPointerMove}
+      onPointerUp={drag.onPointerUp}
+      onPointerCancel={drag.onPointerCancel}
+      className={cn(
+        "absolute z-20 whitespace-pre-wrap break-words",
+        movable
+          ? "cursor-grab touch-none active:cursor-grabbing"
+          : "cursor-pointer",
+        drag.dragging && "opacity-80 ring-2 ring-accent",
+      )}
       style={{
         // Percentages, so the box inherits the SVG's zoom behaviour without
         // any recomputation of its own.
-        left: `${box.x * 100}%`,
-        top: `${box.y * 100}%`,
+        left: `${drag.x * 100}%`,
+        top: `${drag.y * 100}%`,
         width: `${box.w * 100}%`,
         // Font size is a fraction of page height, so text scales with zoom
         // instead of drifting.
@@ -350,7 +389,172 @@ function TextBoxMark({
         color: `var(--${annotation.color})`,
       }}
     >
-      {box.text}
+      <RichText spans={box.spans} text={box.text} />
     </div>
   );
+}
+
+/**
+ * A comment pin, which is a mark you place and then want somewhere else —
+ * the same gesture as a text box, in SVG user units instead of percentages.
+ */
+function CommentPinMark({
+  annotation,
+  onSelect,
+  onMove,
+  movable,
+}: {
+  annotation: Annotation;
+  onSelect?: (annotation: Annotation) => void;
+  onMove?: (annotation: Annotation, x: number, y: number) => void;
+  movable: boolean;
+}) {
+  const pin = annotation.geometry as unknown as { x: number; y: number };
+
+  const drag = useDragToMove({
+    x: pin.x,
+    y: pin.y,
+    enabled: movable && !!onMove,
+    onEnd: (x, y) => onMove?.(annotation, x, y),
+  });
+
+  return (
+    <g
+      className={cn(
+        "pointer-events-auto",
+        movable ? "cursor-grab" : "cursor-pointer",
+      )}
+      onClick={() => {
+        if (!drag.moved) onSelect?.(annotation);
+      }}
+      onPointerDown={drag.onPointerDown}
+      onPointerMove={drag.onPointerMove}
+      onPointerUp={drag.onPointerUp}
+      onPointerCancel={drag.onPointerCancel}
+    >
+      {/*
+        An invisible disc twice the visible radius. The pin is 12 thousandths
+        of the page across — a couple of millimetres — and without a larger
+        target it cannot reliably be grabbed with a finger.
+      */}
+      <circle
+        cx={drag.x}
+        cy={drag.y}
+        r={0.026}
+        fill="transparent"
+        style={{ touchAction: "none" }}
+      />
+      <circle
+        cx={drag.x}
+        cy={drag.y}
+        r={0.012}
+        fill="var(--accent-base)"
+        opacity={drag.dragging ? 0.8 : 1}
+      />
+      <circle cx={drag.x} cy={drag.y} r={0.005} fill="var(--accent-on)" />
+    </g>
+  );
+}
+
+/**
+ * Dragging a mark to a new place on the page.
+ *
+ * The position is tracked locally during the gesture and committed once on
+ * release. Writing every pointermove into the store would put a row in the
+ * outbox per frame — a hundred queued updates for one drag — and the sync
+ * indicator would spend the next few seconds catching up with a move that
+ * already finished.
+ *
+ * Coordinates are normalised against the PAGE element rather than the
+ * viewport, so a drag lands in the same place at any zoom.
+ */
+function useDragToMove({
+  x,
+  y,
+  enabled,
+  onEnd,
+}: {
+  x: number;
+  y: number;
+  enabled: boolean;
+  onEnd: (x: number, y: number) => void;
+}) {
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const start = useRef<{
+    pointerX: number;
+    pointerY: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const moved = useRef(false);
+
+  const onPointerDown = (event: React.PointerEvent<Element>) => {
+    if (!enabled) return;
+
+    const page = event.currentTarget.closest(
+      "[data-leaf-id]",
+    ) as HTMLElement | null;
+    if (!page) return;
+
+    const rect = page.getBoundingClientRect();
+    start.current = {
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      x,
+      y,
+      width: rect.width,
+      height: rect.height,
+    };
+    moved.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.stopPropagation();
+  };
+
+  const onPointerMove = (event: React.PointerEvent<Element>) => {
+    const from = start.current;
+    if (!from) return;
+
+    const dx = (event.clientX - from.pointerX) / from.width;
+    const dy = (event.clientY - from.pointerY) / from.height;
+
+    // A few pixels of travel is a click with a shaky finger, not a drag.
+    if (!moved.current && Math.hypot(dx * from.width, dy * from.height) < 4) {
+      return;
+    }
+    moved.current = true;
+
+    // Clamped: geometry outside [0,1] is rejected at the API boundary, and a
+    // mark dragged off the page could never be dragged back.
+    setPosition({
+      x: Math.min(1, Math.max(0, from.x + dx)),
+      y: Math.min(1, Math.max(0, from.y + dy)),
+    });
+  };
+
+  const finish = (event: React.PointerEvent<Element>) => {
+    const from = start.current;
+    start.current = null;
+    if (!from) return;
+
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+
+    const next = position;
+    setPosition(null);
+    if (moved.current && next) onEnd(next.x, next.y);
+  };
+
+  return {
+    x: position?.x ?? x,
+    y: position?.y ?? y,
+    dragging: position !== null,
+    moved: moved.current,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: finish,
+    onPointerCancel: finish,
+  };
 }

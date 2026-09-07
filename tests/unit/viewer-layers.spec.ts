@@ -37,7 +37,10 @@ describe("page layer stacking", () => {
     );
     // The marks SVG and the HTML text boxes both need to clear z-1.
     expect(source).toMatch(/absolute inset-0 z-20 size-full/);
-    expect(source).toMatch(/absolute z-20 cursor-pointer/);
+    // The text box's classes are conditional now (it is draggable), so match
+    // the invariant rather than one literal string: it is absolutely
+    // positioned at z-20, whatever else it is.
+    expect(source).toMatch(/"absolute z-20 [^"]*"/);
   });
 
   it("puts the ink capture surface above everything on the page", () => {

@@ -28,6 +28,8 @@ export type Occurrence = {
   courseId: string | null;
   title: string;
   location: string | null;
+  /** A Meet/Zoom/Teams link, already validated as safe to render as an href. */
+  meetingUrl: string | null;
   /** `YYYY-MM-DD` in the class's own zone. */
   date: string;
   startsAt: string;
@@ -65,6 +67,7 @@ export async function upcoming(
         courseId: rule.courseId,
         title: rule.title,
         location: rule.location,
+        meetingUrl: rule.meetingUrl,
         date,
         startsAt: startsAt.toISOString(),
         durationMin: rule.durationMin,
@@ -161,6 +164,9 @@ export async function confirm(
     date,
     title: rule.title,
     attended,
+    // Snapshot, not a reference: changing the rule's link next term must not
+    // rewrite the link a class last March actually used.
+    meetingUrl: rule.meetingUrl,
   });
 
   // "No, I didn't go" records the absence and logs NO time. Silence is not
@@ -194,6 +200,7 @@ export async function create(
     durationMin: number;
     timeZone?: string | undefined;
     location?: string | undefined;
+    meetingUrl?: string | null | undefined;
     startsOn: Date;
     endsOn?: Date | undefined;
   },
@@ -220,6 +227,7 @@ export async function create(
     durationMin: input.durationMin,
     timeZone,
     location: input.location,
+    meetingUrl: input.meetingUrl ?? null,
     startsOn: input.startsOn,
     endsOn: input.endsOn,
   });

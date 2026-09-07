@@ -1,0 +1,1082 @@
+[
+  {
+    "name": "Albert",
+    "lang": "en-US",
+    "local": true,
+    "def": true
+  },
+  {
+    "name": "Alice",
+    "lang": "it-IT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Alva",
+    "lang": "sv-SE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Amélie",
+    "lang": "fr-CA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Amira",
+    "lang": "ms-MY",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Anna",
+    "lang": "de-DE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Bad News",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Bahh",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Bells",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Boing",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Bubbles",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Carmit",
+    "lang": "he-IL",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Cellos",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Damayanti",
+    "lang": "id-ID",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Daniel",
+    "lang": "en-GB",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Daria",
+    "lang": "bg-BG",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (English (United States))",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (English (United Kingdom))",
+    "lang": "en-GB",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (Chinese (China mainland))",
+    "lang": "zh-CN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (Chinese (Taiwan))",
+    "lang": "zh-TW",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (German (Germany))",
+    "lang": "de-DE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (Spanish (Spain))",
+    "lang": "es-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (Spanish (Mexico))",
+    "lang": "es-MX",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (Finnish (Finland))",
+    "lang": "fi-FI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (French (Canada))",
+    "lang": "fr-CA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (French (France))",
+    "lang": "fr-FR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (Italian (Italy))",
+    "lang": "it-IT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (Japanese (Japan))",
+    "lang": "ja-JP",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (Korean (South Korea))",
+    "lang": "ko-KR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Eddy (Portuguese (Brazil))",
+    "lang": "pt-BR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Ellen",
+    "lang": "nl-BE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (English (United States))",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (English (United Kingdom))",
+    "lang": "en-GB",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (Chinese (China mainland))",
+    "lang": "zh-CN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (Chinese (Taiwan))",
+    "lang": "zh-TW",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (German (Germany))",
+    "lang": "de-DE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (Spanish (Spain))",
+    "lang": "es-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (Spanish (Mexico))",
+    "lang": "es-MX",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (Finnish (Finland))",
+    "lang": "fi-FI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (French (Canada))",
+    "lang": "fr-CA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (French (France))",
+    "lang": "fr-FR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (Italian (Italy))",
+    "lang": "it-IT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (Japanese (Japan))",
+    "lang": "ja-JP",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (Korean (South Korea))",
+    "lang": "ko-KR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Flo (Portuguese (Brazil))",
+    "lang": "pt-BR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Fred",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Geeta",
+    "lang": "te-IN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Good News",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (English (United States))",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (English (United Kingdom))",
+    "lang": "en-GB",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (Chinese (China mainland))",
+    "lang": "zh-CN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (Chinese (Taiwan))",
+    "lang": "zh-TW",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (German (Germany))",
+    "lang": "de-DE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (Spanish (Spain))",
+    "lang": "es-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (Spanish (Mexico))",
+    "lang": "es-MX",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (Finnish (Finland))",
+    "lang": "fi-FI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (French (Canada))",
+    "lang": "fr-CA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (French (France))",
+    "lang": "fr-FR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (Italian (Italy))",
+    "lang": "it-IT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (Japanese (Japan))",
+    "lang": "ja-JP",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (Korean (South Korea))",
+    "lang": "ko-KR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandma (Portuguese (Brazil))",
+    "lang": "pt-BR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (English (United States))",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (English (United Kingdom))",
+    "lang": "en-GB",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (Chinese (China mainland))",
+    "lang": "zh-CN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (Chinese (Taiwan))",
+    "lang": "zh-TW",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (German (Germany))",
+    "lang": "de-DE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (Spanish (Spain))",
+    "lang": "es-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (Spanish (Mexico))",
+    "lang": "es-MX",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (Finnish (Finland))",
+    "lang": "fi-FI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (French (Canada))",
+    "lang": "fr-CA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (French (France))",
+    "lang": "fr-FR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (Italian (Italy))",
+    "lang": "it-IT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (Japanese (Japan))",
+    "lang": "ja-JP",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (Korean (South Korea))",
+    "lang": "ko-KR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Grandpa (Portuguese (Brazil))",
+    "lang": "pt-BR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Ioana",
+    "lang": "ro-RO",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Jacques",
+    "lang": "fr-FR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Jester",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Joana",
+    "lang": "pt-PT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Junior",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Kanya",
+    "lang": "th-TH",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Karen",
+    "lang": "en-AU",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Kathy",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Kyoko",
+    "lang": "ja-JP",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Lana",
+    "lang": "hr-HR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Laura",
+    "lang": "sk-SK",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Lekha",
+    "lang": "hi-IN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Lesya",
+    "lang": "uk-UA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Linh",
+    "lang": "vi-VN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Luciana",
+    "lang": "pt-BR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Majed",
+    "lang": "ar-001",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Meijia",
+    "lang": "zh-TW",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Melina",
+    "lang": "el-GR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Milena",
+    "lang": "ru-RU",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Moira",
+    "lang": "en-IE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Montse",
+    "lang": "ca-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Mónica",
+    "lang": "es-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Nora",
+    "lang": "nb-NO",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Organ",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Paulina",
+    "lang": "es-MX",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Piya",
+    "lang": "bn-IN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Ralph",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (English (United States))",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (English (United Kingdom))",
+    "lang": "en-GB",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (Chinese (China mainland))",
+    "lang": "zh-CN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (Chinese (Taiwan))",
+    "lang": "zh-TW",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (German (Germany))",
+    "lang": "de-DE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (Spanish (Spain))",
+    "lang": "es-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (Spanish (Mexico))",
+    "lang": "es-MX",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (Finnish (Finland))",
+    "lang": "fi-FI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (French (Canada))",
+    "lang": "fr-CA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (Italian (Italy))",
+    "lang": "it-IT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (Japanese (Japan))",
+    "lang": "ja-JP",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (Korean (South Korea))",
+    "lang": "ko-KR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Reed (Portuguese (Brazil))",
+    "lang": "pt-BR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rishi",
+    "lang": "en-IN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (English (United States))",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (English (United Kingdom))",
+    "lang": "en-GB",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (Chinese (China mainland))",
+    "lang": "zh-CN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (Chinese (Taiwan))",
+    "lang": "zh-TW",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (German (Germany))",
+    "lang": "de-DE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (Spanish (Spain))",
+    "lang": "es-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (Spanish (Mexico))",
+    "lang": "es-MX",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (Finnish (Finland))",
+    "lang": "fi-FI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (French (Canada))",
+    "lang": "fr-CA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (French (France))",
+    "lang": "fr-FR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (Italian (Italy))",
+    "lang": "it-IT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (Japanese (Japan))",
+    "lang": "ja-JP",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (Korean (South Korea))",
+    "lang": "ko-KR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Rocko (Portuguese (Brazil))",
+    "lang": "pt-BR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Samantha",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (English (United States))",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (English (United Kingdom))",
+    "lang": "en-GB",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (Chinese (China mainland))",
+    "lang": "zh-CN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (Chinese (Taiwan))",
+    "lang": "zh-TW",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (German (Germany))",
+    "lang": "de-DE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (Spanish (Spain))",
+    "lang": "es-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (Spanish (Mexico))",
+    "lang": "es-MX",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (Finnish (Finland))",
+    "lang": "fi-FI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (French (Canada))",
+    "lang": "fr-CA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (French (France))",
+    "lang": "fr-FR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (Italian (Italy))",
+    "lang": "it-IT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (Japanese (Japan))",
+    "lang": "ja-JP",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (Korean (South Korea))",
+    "lang": "ko-KR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sandy (Portuguese (Brazil))",
+    "lang": "pt-BR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sara",
+    "lang": "da-DK",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Satu",
+    "lang": "fi-FI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (English (United States))",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (English (United Kingdom))",
+    "lang": "en-GB",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (Chinese (China mainland))",
+    "lang": "zh-CN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (Chinese (Taiwan))",
+    "lang": "zh-TW",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (German (Germany))",
+    "lang": "de-DE",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (Spanish (Spain))",
+    "lang": "es-ES",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (Spanish (Mexico))",
+    "lang": "es-MX",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (Finnish (Finland))",
+    "lang": "fi-FI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (French (Canada))",
+    "lang": "fr-CA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (French (France))",
+    "lang": "fr-FR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (Italian (Italy))",
+    "lang": "it-IT",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (Japanese (Japan))",
+    "lang": "ja-JP",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (Korean (South Korea))",
+    "lang": "ko-KR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Shelley (Portuguese (Brazil))",
+    "lang": "pt-BR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Sinji",
+    "lang": "yue-HK",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Soumya",
+    "lang": "kn-IN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Superstar",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Tessa",
+    "lang": "en-ZA",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Thomas",
+    "lang": "fr-FR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Tina",
+    "lang": "sl-SI",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Tingting",
+    "lang": "zh-CN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Trinoids",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Tünde",
+    "lang": "hu-HU",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Vani",
+    "lang": "ta-IN",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Whisper",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Wobble",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Xander",
+    "lang": "nl-NL",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Yelda",
+    "lang": "tr-TR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Yuna",
+    "lang": "ko-KR",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Zarvox",
+    "lang": "en-US",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Zosia",
+    "lang": "pl-PL",
+    "local": true,
+    "def": false
+  },
+  {
+    "name": "Zuzana",
+    "lang": "cs-CZ",
+    "local": true,
+    "def": false
+  }
+]

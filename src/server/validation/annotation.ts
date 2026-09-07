@@ -11,6 +11,9 @@ import { HIGHLIGHT_KEYS, INK_KEYS } from "@/lib/tokens";
  * later.
  */
 
+/** Colour is a TOKEN KEY, never a hex. CLAUDE.md rule 5. */
+const colorSchema = z.enum([...HIGHLIGHT_KEYS, ...INK_KEYS]);
+
 /** A normalised scalar. `.finite()` also rejects NaN and Infinity. */
 const unit = z.number().finite().min(0).max(1);
 
@@ -48,16 +51,56 @@ export const inkGeometry = z.object({
     .max(50),
 });
 
-export const textBoxGeometry = z.object({
-  x: unit,
-  y: unit,
-  w: size,
-  h: size,
-  text: z.string().max(4000),
-  /** Font size as a fraction of page height, so it scales with zoom. */
-  fontSize: z.number().finite().min(0.005).max(0.2),
-  align: z.enum(["left", "center", "right"]).default("left"),
+/**
+ * One formatted run inside a text box.
+ *
+ * Structure, not markup. The editor is a contenteditable, so what the browser
+ * hands back is arbitrary user HTML; storing that would mean sanitising it
+ * forever. Instead the DOM is read into these fields and rendering rebuilds
+ * elements from them, so there is no path by which a stored string becomes
+ * markup. See src/lib/richtext.ts.
+ */
+export const textSpanSchema = z.object({
+  t: z.string().max(4000),
+  b: z.boolean().optional(),
+  i: z.boolean().optional(),
+  u: z.boolean().optional(),
+  /** A TOKEN KEY, never a hex — the same rule as the annotation's colour. */
+  c: colorSchema.optional(),
+  f: z.enum(["ui", "reading", "mono"]).optional(),
 });
+
+export const textBoxGeometry = z
+  .object({
+    x: unit,
+    y: unit,
+    w: size,
+    h: size,
+    /**
+     * The plain-text projection of `spans`, and the only thing search and the
+     * PDF export read. Kept in the record rather than derived on the fly so a
+     * reader that knows nothing about spans still shows the note.
+     */
+    text: z.string().max(4000),
+    spans: z.array(textSpanSchema).max(200).optional(),
+    /** Font size as a fraction of page height, so it scales with zoom. */
+    fontSize: z.number().finite().min(0.005).max(0.2),
+    align: z.enum(["left", "center", "right"]).default("left"),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.spans) return;
+
+    // A `text` that disagrees with `spans` would show one thing on screen and
+    // export another. Reject rather than silently trust one of them.
+    const joined = value.spans.map((span) => span.t).join("");
+    if (joined !== value.text) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["text"],
+        message: "text must be exactly the concatenation of spans",
+      });
+    }
+  });
 
 export const shapeGeometry = z.object({
   shape: z.enum(["rect", "ellipse", "line", "arrow"]),
@@ -108,9 +151,6 @@ export const textAnchorSchema = z.object({
   startOffset: z.number().int().min(0).optional(),
   endOffset: z.number().int().min(0).optional(),
 });
-
-/** Colour is a TOKEN KEY, never a hex. CLAUDE.md rule 5. */
-const colorSchema = z.enum([...HIGHLIGHT_KEYS, ...INK_KEYS]);
 
 const baseOp = {
   clientId: z.string().uuid(),

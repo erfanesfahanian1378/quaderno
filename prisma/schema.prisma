@@ -165,6 +165,10 @@ model ScheduledClass {
   durationMin Int
   timeZone    String // IANA zone the wall time is interpreted in
   location    String?
+  /// Where the class actually happens when it happens online — a Meet, Zoom
+  /// or Teams link. Validated as https at the boundary; see
+  /// src/lib/meeting-url.ts for why that check is not optional.
+  meetingUrl  String?
   startsOn    DateTime  @db.Date
   endsOn      DateTime? @db.Date
 
@@ -195,11 +199,14 @@ model ClassSession {
   courseId         String?
   scheduledClassId String?
 
-  date     DateTime @db.Date
-  title    String
-  topics   String[] @default([])
-  summary  String?  @db.Text
-  attended Boolean  @default(true)
+  date       DateTime @db.Date
+  title      String
+  topics     String[] @default([])
+  summary    String?  @db.Text
+  attended   Boolean  @default(true)
+  /// Copied from the rule when an occurrence is confirmed, so changing the
+  /// rule's link later does not rewrite the link a past class actually used.
+  meetingUrl String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

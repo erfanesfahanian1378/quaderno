@@ -65,6 +65,9 @@ export async function runExport(payload: ExportPayload): Promise<void> {
       flavour: record.flavour as "flattened" | "layered" | "notes-only",
       title: data.title,
       typesetNote: (doc, markdown) => typesetInto(doc, markdown, true),
+      // The worker has no theme, so a formatted note's spans resolve to the
+      // light palette — the same table used for the annotation colours above.
+      resolveToken: (key) => LIGHT_TOKENS[key] ?? "#1C1B18",
     });
 
     const key = exportKey(userId, exportId);

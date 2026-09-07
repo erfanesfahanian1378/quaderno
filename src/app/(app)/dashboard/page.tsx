@@ -14,6 +14,7 @@ import type { AccentKey } from "@/lib/tokens";
 import { WeekBars } from "@/components/charts/WeekBars";
 import { ContinueRow } from "@/components/library/ContinueRow";
 import { UploadIcon } from "@/components/nav/icons";
+import { JoinButton } from "@/components/study/JoinButton";
 
 export const metadata = { title: "Today" };
 
@@ -133,9 +134,12 @@ export default async function DashboardPage() {
                 }).format(new Date(`${pending[0]!.date}T12:00:00Z`))}
               </p>
             </div>
-            <Link href="/schedule">
-              <Button variant="secondary">Answer</Button>
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <JoinButton url={pending[0]?.meetingUrl} size="sm" />
+              <Link href="/schedule">
+                <Button variant="secondary">Answer</Button>
+              </Link>
+            </div>
           </Card>
         </section>
       ) : nextClass ? (
@@ -157,12 +161,21 @@ export default async function DashboardPage() {
                 {nextClass.location ? ` · ${nextClass.location}` : ""}
               </p>
             </div>
-            <Link href="/library">
-              <Button variant="secondary">
-                <UploadIcon className="size-4" />
-                Add materials
-              </Button>
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              {/*
+                Join comes first and is the primary action. When the next
+                class is in ten minutes, opening the call is the only thing
+                anyone wants from this card.
+              */}
+              <JoinButton url={nextClass.meetingUrl} />
+
+              <Link href="/library">
+                <Button variant="secondary">
+                  <UploadIcon className="size-4" />
+                  Add materials
+                </Button>
+              </Link>
+            </div>
           </Card>
         </section>
       ) : null}

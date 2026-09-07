@@ -2,6 +2,14 @@
 
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import type { InkKey } from "@/lib/tokens";
+import { cn } from "@/lib/cn";
+import { FormatBar } from "./FormatBar";
+import {
+  buildColorMap,
+  readSpansFromDom,
+  spansToText,
+  type TextSpan,
+} from "@/lib/richtext";
 
 /**
  * The one text input the viewer uses for placing a text box or writing a
@@ -38,7 +46,9 @@ export type ComposerResult = {
   leafId: string;
   x: number;
   y: number;
+  /** Plain text, always. `spans` carries the formatting when there is any. */
   text: string;
+  spans?: TextSpan[];
   width: number;
   height: number;
 };
@@ -62,9 +72,17 @@ export const InlineComposer = forwardRef<
     onCommit: (result: ComposerResult) => void;
   }
 >(function InlineComposer({ color, onCommit }, ref) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /*
+   * A contenteditable rather than a textarea, so bold, italic, underline,
+   * colour and font can apply to a SELECTION. A textarea has one style for
+   * its whole value, which is the entire reason this changed.
+   *
+   * The permanently-mounted, synchronously-focused arrangement below is
+   * unchanged and still load-bearing — see the note above.
+   */
+  const editorRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<Position | null>(null);
-  const [value, setValue] = useState("");
+  const [empty, setEmpty] = useState(true);
   const positionRef = useRef<Position | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -83,41 +101,56 @@ export const InlineComposer = forwardRef<
 
       positionRef.current = next;
       setPosition(next);
-      setValue("");
+      setEmpty(true);
 
       // SYNCHRONOUS. This is the line the whole component exists for.
-      const element = textareaRef.current;
+      const element = editorRef.current;
       if (element) {
-        element.value = "";
-        element.style.height = "auto";
+        element.textContent = "";
         element.focus();
       }
     },
     close() {
       positionRef.current = null;
       setPosition(null);
-      setValue("");
-      textareaRef.current?.blur();
+      setEmpty(true);
+      if (editorRef.current) editorRef.current.textContent = "";
+      editorRef.current?.blur();
     },
   }));
 
   const commit = () => {
     const current = positionRef.current;
-    const text = value.trim();
+    const element = editorRef.current;
+
+    /*
+     * Serialise BEFORE tearing the editor down. Reading computed styles out
+     * of a node that React has already unmounted gives every span the
+     * document defaults, which silently drops all the formatting.
+     */
+    const spans = element ? readSpansFromDom(element, buildColorMap()) : [];
+    const text = spansToText(spans).trim();
 
     positionRef.current = null;
     setPosition(null);
-    setValue("");
+    setEmpty(true);
 
+    if (element) element.textContent = "";
     if (!current || !text) return;
 
-    const element = textareaRef.current;
+    // Formatting is only worth storing when there is some: a note typed
+    // plainly should be one span with no fields, or none at all.
+    const formatted = spans.some(
+      (span) => span.b || span.i || span.u || span.c || span.f,
+    );
+
     onCommit({
       kind: current.kind,
       leafId: current.leafId,
       x: current.x,
       y: current.y,
       text,
+      ...(formatted ? { spans: trimSpans(spans) } : {}),
       width: element ? element.offsetWidth / current.pageWidth : 0.4,
       height: element ? element.offsetHeight / current.pageHeight : 0.05,
     });
@@ -152,21 +185,28 @@ export const InlineComposer = forwardRef<
             : "opacity-0"
         }
       >
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(event) => {
-            setValue(event.target.value);
-            const element = event.target;
-            element.style.height = "auto";
-            element.style.height = `${element.scrollHeight}px`;
-          }}
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-multiline="true"
+          aria-label={
+            position?.kind === "comment" ? "Write a note" : "Type text"
+          }
+          data-placeholder={
+            position?.kind === "comment" ? "Write a note…" : "Type…"
+          }
+          onInput={(event) =>
+            setEmpty(!event.currentTarget.textContent?.trim())
+          }
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               event.preventDefault();
               positionRef.current = null;
               setPosition(null);
-              setValue("");
+              setEmpty(true);
+              event.currentTarget.textContent = "";
               event.currentTarget.blur();
             }
             if (event.key === "Enter" && !event.shiftKey) {
@@ -174,9 +214,33 @@ export const InlineComposer = forwardRef<
               commit();
               event.currentTarget.blur();
             }
+
+            // The shortcuts anyone expects in a text field. Without these the
+            // toolbar is the only way to format, which on a laptop is worse
+            // than the textarea it replaced.
+            if (event.metaKey || event.ctrlKey) {
+              const command = { b: "bold", i: "italic", u: "underline" }[
+                event.key.toLowerCase()
+              ];
+              if (command) {
+                event.preventDefault();
+                document.execCommand("styleWithCSS", false, "true");
+                document.execCommand(command);
+              }
+            }
           }}
-          placeholder={position?.kind === "comment" ? "Write a note…" : "Type…"}
-          rows={1}
+          onPaste={(event) => {
+            /*
+             * Paste as PLAIN text. The clipboard can carry arbitrary HTML
+             * from any page, and while nothing pasted is ever stored as
+             * markup, letting it into the editor means fonts, sizes and
+             * background colours that the span model cannot represent and
+             * that the serialiser would quietly discard anyway.
+             */
+            event.preventDefault();
+            const text = event.clipboardData.getData("text/plain");
+            document.execCommand("insertText", false, text);
+          }}
           // Always focusable: `open()` focuses it before React has applied
           // the state that makes it visible.
           tabIndex={0}
@@ -189,8 +253,27 @@ export const InlineComposer = forwardRef<
            * where you cannot read what you are typing. The swatch below shows
            * which colour it will become once it lands on the page.
            */
-          className="w-full resize-none overflow-hidden bg-transparent text-body text-ink outline-none placeholder:text-ink-3"
+          className={cn(
+            "max-h-48 w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent text-body text-ink outline-none",
+            // The placeholder, which a contenteditable does not get for free.
+            empty &&
+              "before:pointer-events-none before:text-ink-3 before:content-[attr(data-placeholder)]",
+          )}
         />
+
+        {active ? (
+          <FormatBar
+            className="mt-2 border-t border-hairline pt-2"
+            onCommand={(run) => {
+              // Keep the caret where it was: the toolbar buttons already
+              // prevent the mousedown default, and this re-asserts focus for
+              // the browsers that drop it anyway.
+              editorRef.current?.focus();
+              run();
+              setEmpty(!editorRef.current?.textContent?.trim());
+            }}
+          />
+        ) : null}
 
         {active ? (
           <div className="mt-2 flex items-center gap-2">
@@ -223,3 +306,8 @@ export const InlineComposer = forwardRef<
     </div>
   );
 });
+
+/** Drops empty runs and caps the list, so one note stays a bounded payload. */
+function trimSpans(spans: TextSpan[]): TextSpan[] {
+  return spans.filter((span) => span.t.length > 0).slice(0, 200);
+}

@@ -85,6 +85,8 @@ export async function create(
     topics?: string[] | undefined;
     summary?: string | undefined;
     attended?: boolean | undefined;
+    /** The link this class actually used, kept as a record of the past. */
+    meetingUrl?: string | null | undefined;
   },
 ): Promise<ClassSessionRow> {
   return prisma.classSession.create({
@@ -97,6 +99,7 @@ export async function create(
       title: input.title,
       topics: input.topics ?? [],
       summary: input.summary ?? null,
+      meetingUrl: input.meetingUrl ?? null,
       attended: input.attended ?? true,
     },
     select: FIELDS,

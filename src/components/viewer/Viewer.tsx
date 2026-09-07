@@ -302,12 +302,38 @@ export function Viewer({
           w: result.width,
           h: result.height,
           text: result.text,
+          // Omitted entirely when the note is unformatted, so a plain note
+          // stays a plain row rather than carrying a redundant span list.
+          ...(result.spans && result.spans.length > 0
+            ? { spans: result.spans }
+            : {}),
           fontSize: 0.022,
           align: "left",
         },
       });
     },
     [annotations, doc.id, inkColor],
+  );
+
+  /**
+   * Commit a dragged mark.
+   *
+   * One update at the end of the gesture, not one per frame: the drag itself
+   * is local state inside the mark (see useDragToMove), so the outbox sees a
+   * single row for a move that took a second and a hundred pointer events.
+   */
+  const onAnnotationMove = useCallback(
+    (annotation: { clientId: string }, x: number, y: number) => {
+      const found = annotations.all.find(
+        (item) => item.clientId === annotation.clientId,
+      );
+      if (!found) return;
+
+      annotations.update(found, {
+        geometry: { ...found.geometry, x, y },
+      });
+    },
+    [annotations],
   );
 
   const onAnnotationClick = useCallback(
@@ -524,6 +550,11 @@ export function Viewer({
                             annotations={annotations.forLeaf(leaf.id)}
                             geometry={geometry}
                             onSelect={onAnnotationClick}
+                            onMove={onAnnotationMove}
+                            // Only with the select tool. Dragging a note
+                            // while the pen is out would mean every stroke
+                            // that starts on a note moves it instead.
+                            movable={tool === "select"}
                             selectedClientId={selectedClientId}
                           />
 

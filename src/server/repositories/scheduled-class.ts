@@ -11,6 +11,7 @@ const FIELDS = {
   durationMin: true,
   timeZone: true,
   location: true,
+  meetingUrl: true,
   startsOn: true,
   endsOn: true,
   active: true,
@@ -26,6 +27,7 @@ export type ScheduledClassRow = {
   durationMin: number;
   timeZone: string;
   location: string | null;
+  meetingUrl: string | null;
   startsOn: Date;
   endsOn: Date | null;
   active: boolean;
@@ -68,6 +70,7 @@ export async function create(
     durationMin: number;
     timeZone: string;
     location?: string | undefined;
+    meetingUrl?: string | null | undefined;
     startsOn: Date;
     endsOn?: Date | undefined;
   },
@@ -83,6 +86,7 @@ export async function create(
       durationMin: input.durationMin,
       timeZone: input.timeZone,
       location: input.location ?? null,
+      meetingUrl: input.meetingUrl ?? null,
       startsOn: input.startsOn,
       endsOn: input.endsOn ?? null,
     },
@@ -100,6 +104,7 @@ export async function update(
     durationMin: number;
     timeZone: string;
     location: string | null;
+    meetingUrl: string | null;
     endsOn: Date | null;
     active: boolean;
   }>,

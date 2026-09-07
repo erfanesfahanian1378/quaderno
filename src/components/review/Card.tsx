@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useSpeech } from "@/lib/speech";
+import type { Speech } from "@/lib/speech";
 import { cn } from "@/lib/cn";
 
 export type ReviewCardData = {
@@ -26,15 +26,14 @@ export function Card({
   card,
   revealed,
   onReveal,
-  languageCode,
+  speech,
 }: {
   card: ReviewCardData;
   revealed: boolean;
   onReveal: () => void;
-  languageCode: string;
+  /** Owned by the session, so the card and the voice picker agree. */
+  speech: Speech;
 }) {
-  const speech = useSpeech(languageCode);
-
   // Stop mid-word when the card changes; otherwise the previous word is still
   // being said over the next one.
   useEffect(() => speech.cancel, [card.id, speech.cancel]);

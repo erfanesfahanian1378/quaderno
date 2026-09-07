@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api-client";
 import { Banner, Button, EmptyState } from "@/components/ui";
 import { Card, type ReviewCardData } from "./Card";
+import { VoicePicker } from "@/components/speech/VoicePicker";
+import { useSpeech } from "@/lib/speech";
 import { Grades, GRADE_KEYS, formatInterval } from "./Grades";
 import type { Grade } from "@/server/services/review/sm2";
 
@@ -35,6 +37,10 @@ export function Session({
   const [done, setDone] = useState(0);
   const [revealedAt, setRevealedAt] = useState<number | null>(null);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
+
+  // One hook for the session, passed down, so the card and the picker agree
+  // on which voice is in use.
+  const speech = useSpeech(languageCode);
 
   const card = queue[index];
   const remaining = queue.length - index;
@@ -164,12 +170,7 @@ export function Session({
 
       {error ? <Banner tone="danger">{error}</Banner> : null}
 
-      <Card
-        card={card}
-        revealed={revealed}
-        onReveal={reveal}
-        languageCode={languageCode}
-      />
+      <Card card={card} revealed={revealed} onReveal={reveal} speech={speech} />
 
       {revealed ? (
         <Grades
@@ -182,6 +183,8 @@ export function Session({
           Show answer
         </Button>
       )}
+
+      <VoicePicker speech={speech} languageCode={languageCode} />
     </div>
   );
 }

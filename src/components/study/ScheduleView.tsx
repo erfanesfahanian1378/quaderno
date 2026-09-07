@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, handler } from "@/lib/api-client";
 import { Banner, Button, Card, EmptyState } from "@/components/ui";
+import { JoinButton } from "./JoinButton";
 import { cn } from "@/lib/cn";
 import { formatDuration } from "@/lib/time";
 import type { AccentKey } from "@/lib/tokens";
@@ -18,6 +19,7 @@ type Rule = {
   startTime: string;
   durationMin: number;
   location: string | null;
+  meetingUrl: string | null;
   timeZone: string;
   active: boolean;
   rrule: string;
@@ -114,7 +116,8 @@ export function ScheduleView({
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <JoinButton url={entry.meetingUrl} size="sm" />
                     <Button
                       size="sm"
                       onClick={handler(async () => answer(entry, true))}
@@ -190,6 +193,8 @@ export function ScheduleView({
                         : ""}
                     </p>
                   </div>
+
+                  <JoinButton url={entry.meetingUrl} size="sm" />
                 </div>
               );
             })}
@@ -260,6 +265,7 @@ function RecurringClassEditor({
   const [startTime, setStartTime] = useState("18:30");
   const [durationMin, setDurationMin] = useState(90);
   const [location, setLocation] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -274,6 +280,9 @@ function RecurringClassEditor({
       startTime,
       durationMin,
       location: location.trim() || undefined,
+      // Empty means "no link", not "a link that is the empty string" — the
+      // schema turns "" into null rather than rejecting it.
+      meetingUrl: meetingUrl.trim() || null,
       startsOn: new Date().toISOString().slice(0, 10),
     });
 
@@ -378,10 +387,26 @@ function RecurringClassEditor({
           <input
             value={location}
             onChange={(event) => setLocation(event.target.value)}
+            placeholder="Room 12, or online"
             className="h-11 rounded-sm border border-hairline-strong bg-surface px-3 text-body text-ink"
           />
         </label>
       </div>
+
+      <label className="flex flex-col gap-1">
+        <span className="text-label text-ink-2">Meeting link (optional)</span>
+        <input
+          value={meetingUrl}
+          onChange={(event) => setMeetingUrl(event.target.value)}
+          inputMode="url"
+          placeholder="meet.google.com/abc-defg-hij"
+          className="h-11 rounded-sm border border-hairline-strong bg-surface px-3 text-body text-ink"
+        />
+        <span className="text-caption text-ink-3">
+          Google Meet, Zoom, Teams — whatever your class uses. It becomes a Join
+          button here and on Today.
+        </span>
+      </label>
 
       <div>
         <Button

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useSpeech } from "@/lib/speech";
+import { VoicePicker } from "@/components/speech/VoicePicker";
 
 /**
  * Read-aloud, for practising pronunciation.
@@ -41,7 +42,8 @@ export function PronouncePanel({
 
   // Voice picking, the utterance lifecycle and the cancel-before-speak rule
   // all live in the hook — the review card needs exactly the same behaviour.
-  const { speak, cancel, speaking, supported, voice } = useSpeech(languageCode);
+  const speech = useSpeech(languageCode);
+  const { speak, cancel, speaking, supported } = speech;
 
   useEffect(() => {
     if (open) setText(initialText);
@@ -122,21 +124,19 @@ export function PronouncePanel({
                 {option.label}
               </button>
             ))}
-
-            <span className="ml-auto truncate text-caption text-ink-3">
-              {voice
-                ? voice.name.slice(0, 22)
-                : `no ${languageCode.toUpperCase()} voice installed`}
-            </span>
           </div>
 
-          {!voice ? (
-            <p className="mt-2 text-caption text-ink-3">
-              Your device has no {languageCode.toUpperCase()} voice, so this
-              will use the default one — which is the wrong accent to practise
-              against. Add one in your system&apos;s language settings.
-            </p>
-          ) : null}
+          {/*
+            The picker, not a read-only label. A Mac offers a dozen voices per
+            language of wildly different quality and the API gives no way to
+            tell two good ones apart, so the last word belongs to the ear
+            listening.
+          */}
+          <VoicePicker
+            speech={speech}
+            languageCode={languageCode}
+            className="mt-2"
+          />
         </>
       )}
     </div>

@@ -6,6 +6,9 @@ import {
   type PDFPage,
   type RGB,
 } from "pdf-lib";
+import { drawRichText, embedFonts, type FontSet } from "./richtext-pdf";
+import { LIGHT_HEX } from "./palette";
+import type { TextSpan } from "@/lib/richtext";
 
 /**
  * Baking annotations into a PDF. ANNOTATION_ENGINE.md §8.
@@ -61,7 +64,12 @@ function place(page: PDFPage, x: number, y: number): { x: number; y: number } {
   return { x: x * width, y: height - y * height };
 }
 
-function drawAnnotation(page: PDFPage, annotation: ExportAnnotation): void {
+function drawAnnotation(
+  page: PDFPage,
+  annotation: ExportAnnotation,
+  fonts: FontSet,
+  resolveToken: (key: string) => string,
+): void {
   const { width, height } = page.getSize();
   const color = hexToRgb(annotation.colorHex);
 
@@ -196,10 +204,26 @@ function drawAnnotation(page: PDFPage, annotation: ExportAnnotation): void {
         y: number;
         w: number;
         text: string;
+        spans?: TextSpan[];
         fontSize: number;
       };
       const origin = place(page, box.x, box.y);
       const size = Math.max(6, box.fontSize * height);
+
+      if (box.spans && box.spans.length > 0) {
+        // Formatted. Wrapping happens per run, because the runs have
+        // different fonts and pdf-lib can only wrap one.
+        drawRichText(page, box.spans, {
+          x: origin.x,
+          y: origin.y,
+          maxWidth: box.w * width,
+          size,
+          fonts,
+          baseColor: color,
+          resolveColor: (key) => hexToRgb(resolveToken(key)),
+        });
+        return;
+      }
 
       page.drawText(box.text, {
         x: origin.x,
@@ -244,10 +268,25 @@ export async function bakeExport(options: {
   flavour: ExportFlavour;
   title: string;
   typesetNote: (pdf: PDFDocument, markdown: string) => Promise<void>;
+  /**
+   * Token key to hex, for the colours inside a formatted note.
+   *
+   * The annotation's own colour arrives already resolved as `colorHex`, but a
+   * note's spans carry token KEYS, and those have to be resolved wherever the
+   * export is being built: the browser reads live computed styles so a note
+   * exported from dark mode keeps the colours its author saw, and the worker
+   * uses the light table because a Node process has no theme.
+   */
+  resolveToken?: ((key: string) => string) | undefined;
 }): Promise<Uint8Array> {
   const output = await PDFDocument.create();
   output.setTitle(options.title);
   output.setCreator("Quaderno");
+
+  // Embedded once for the whole document, not once per note.
+  const fonts = await embedFonts(output);
+  const resolveToken =
+    options.resolveToken ?? ((key: string) => LIGHT_HEX[key] ?? "#1C1B18");
 
   const source = options.sourcePdf
     ? await PDFDocument.load(options.sourcePdf, { ignoreEncryption: true })
@@ -272,7 +311,7 @@ export async function bakeExport(options: {
           const { addLayeredAnnotation } = await layered();
           if (addLayeredAnnotation(output, page, annotation)) continue;
         }
-        drawAnnotation(page, annotation);
+        drawAnnotation(page, annotation, fonts, resolveToken);
       }
       continue;
     }
@@ -289,7 +328,7 @@ export async function bakeExport(options: {
             const { addLayeredAnnotation } = await layered();
             if (addLayeredAnnotation(output, page, annotation)) continue;
           }
-          drawAnnotation(page, annotation);
+          drawAnnotation(page, annotation, fonts, resolveToken);
         }
       }
     }
