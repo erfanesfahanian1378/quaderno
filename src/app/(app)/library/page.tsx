@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUserPage } from "@/server/auth/guards";
+import { env } from "@/server/env";
 import * as languages from "@/server/repositories/language";
 import * as documents from "@/server/repositories/document";
 import { EmptyState } from "@/components/ui";
@@ -119,6 +120,7 @@ export default async function LibraryPage({
 
       <Dropzone
         languageId={activeLanguageId}
+        maxBytes={env().MAX_UPLOAD_BYTES}
         {...(params.classSessionId
           ? { classSessionId: params.classSessionId }
           : {})}

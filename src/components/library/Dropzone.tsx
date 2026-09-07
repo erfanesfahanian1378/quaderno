@@ -7,13 +7,19 @@ import { uuid } from "@/lib/uuid";
 import { Banner, Button } from "@/components/ui";
 import { UploadIcon } from "@/components/nav/icons";
 import { cn } from "@/lib/cn";
+import {
+  canCompress,
+  compressPdf,
+  formatBytes,
+  type CompressResult,
+} from "@/lib/compress-pdf";
 
 /**
  * Upload dropzone.
  *
  * Implements the two-step flow from API.md: presign, PUT **straight to object
  * storage**, then complete. The bytes never touch the Node process, which is
- * what lets a 50 MB deck upload without the web container growing.
+ * what lets a 150 MB deck upload without the web container growing.
  */
 
 type Upload = {
@@ -69,16 +75,24 @@ function mimeFor(file: File): string {
 export function Dropzone({
   languageId,
   classSessionId,
+  maxBytes,
   className,
 }: {
   languageId: string;
   classSessionId?: string;
+  /** The server's limit, so a file can be refused before it is uploaded. */
+  maxBytes: number;
   className?: string;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
+
+  /** Files the reader has been asked about but has not answered yet. */
+  const [oversized, setOversized] = useState<
+    { id: string; file: File; state: "asking" | "working"; note?: string }[]
+  >([]);
 
   const patch = useCallback((id: string, next: Partial<Upload>) => {
     setUploads((current) =>
@@ -170,14 +184,90 @@ export function Dropzone({
     [languageId, classSessionId, patch, router],
   );
 
+  /**
+   * A file past the limit is not simply refused.
+   *
+   * What makes a handout 200 MB is scanned pages at 600 DPI, and the reader
+   * usually cannot get a smaller copy — the teacher sent that one. Offering to
+   * shrink it is the difference between using the app and not.
+   */
+  const compress = useCallback(
+    async (id: string, file: File) => {
+      setOversized((current) =>
+        current.map((entry) =>
+          entry.id === id
+            ? { ...entry, state: "working", note: "Starting…" }
+            : entry,
+        ),
+      );
+
+      try {
+        const result: CompressResult = await compressPdf(file, {
+          targetBytes: maxBytes,
+          onProgress: ({ page, pages }) =>
+            setOversized((current) =>
+              current.map((entry) =>
+                entry.id === id
+                  ? { ...entry, note: `Page ${page} of ${pages}…` }
+                  : entry,
+              ),
+            ),
+        });
+
+        if (result.bytes > maxBytes) {
+          setOversized((current) =>
+            current.map((entry) =>
+              entry.id === id
+                ? {
+                    ...entry,
+                    state: "asking",
+                    note: `Only got down to ${formatBytes(result.bytes)}, still over the ${formatBytes(maxBytes)} limit. This file will not compress much further — it is probably not scanned pages.`,
+                  }
+                : entry,
+            ),
+          );
+          return;
+        }
+
+        setOversized((current) => current.filter((entry) => entry.id !== id));
+        void uploadOne(result.file);
+      } catch (error) {
+        setOversized((current) =>
+          current.map((entry) =>
+            entry.id === id
+              ? {
+                  ...entry,
+                  state: "asking",
+                  note:
+                    error instanceof Error
+                      ? `That did not work: ${error.message}`
+                      : "That did not work.",
+                }
+              : entry,
+          ),
+        );
+      }
+    },
+    [maxBytes, uploadOne],
+  );
+
   const handleFiles = useCallback(
     (files: FileList | null) => {
       if (!files) return;
       for (const file of Array.from(files)) {
+        if (file.size > maxBytes) {
+          // Checked here as well as at presign. The server is the authority,
+          // but finding out after a 200 MB upload attempt is not an answer.
+          setOversized((current) => [
+            ...current,
+            { id: uuid(), file, state: "asking" },
+          ]);
+          continue;
+        }
         void uploadOne(file);
       }
     },
-    [uploadOne],
+    [maxBytes, uploadOne],
   );
 
   return (
@@ -228,6 +318,62 @@ export function Dropzone({
           onChange={(event) => handleFiles(event.target.files)}
         />
       </div>
+
+      {oversized.map((entry) => (
+        <div
+          key={entry.id}
+          className="mt-3 rounded-md border border-warning bg-warning-soft p-3 text-warning-on-soft"
+        >
+          <p className="text-label">
+            {entry.file.name} is {formatBytes(entry.file.size)}
+          </p>
+
+          <p className="mt-1 text-body-sm">
+            The limit is {formatBytes(maxBytes)}.
+            {canCompress(entry.file)
+              ? " It can be compressed here, in your browser — nothing is uploaded until it fits."
+              : " Only PDFs can be compressed here, so this one has to be made smaller before uploading."}
+          </p>
+
+          {canCompress(entry.file) ? (
+            <p className="mt-1.5 text-caption">
+              Compressing re-draws every page as an image, so text stops being
+              selectable and the file usually gets several times smaller. You
+              can run <strong>Read the text</strong> on it afterwards to make it
+              searchable again.
+            </p>
+          ) : null}
+
+          {entry.note ? (
+            <p className="mt-1.5 text-caption">{entry.note}</p>
+          ) : null}
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {canCompress(entry.file) ? (
+              <Button
+                size="sm"
+                loading={entry.state === "working"}
+                onClick={() => void compress(entry.id, entry.file)}
+              >
+                Compress and upload
+              </Button>
+            ) : null}
+
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={entry.state === "working"}
+              onClick={() =>
+                setOversized((current) =>
+                  current.filter((item) => item.id !== entry.id),
+                )
+              }
+            >
+              {entry.state === "working" ? "Working…" : "Cancel"}
+            </Button>
+          </div>
+        </div>
+      ))}
 
       {uploads.length > 0 ? (
         <ul className="mt-3 flex flex-col gap-2">

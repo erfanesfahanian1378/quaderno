@@ -23,6 +23,8 @@ const PUBLIC_FIELDS = {
   emailVerified: true,
   locale: true,
   timeZone: true,
+  notifyClassMinutes: true,
+  notifyStudyAt: true,
   weekStartsOn: true,
   theme: true,
   storageQuotaBytes: true,
@@ -38,6 +40,8 @@ export type PublicUser = {
   emailVerified: Date | null;
   locale: string;
   timeZone: string;
+  notifyClassMinutes: number | null;
+  notifyStudyAt: string | null;
   weekStartsOn: number;
   theme: string;
   storageQuotaBytes: bigint;
@@ -83,6 +87,10 @@ export async function update(
     timeZone?: string | undefined;
     weekStartsOn?: number | undefined;
     theme?: string | undefined;
+    /** Minutes before a class to be reminded. Null turns it off. */
+    notifyClassMinutes?: number | null | undefined;
+    /** "HH:MM" in the user's own zone. Null turns it off. */
+    notifyStudyAt?: string | null | undefined;
   },
 ): Promise<PublicUser | null> {
   // updateMany, not update: it takes a `where` we can scope, so a foreign id

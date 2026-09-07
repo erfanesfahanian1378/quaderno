@@ -104,6 +104,16 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
    */
   "share-link.resolveToken": "the token is the credential; it returns the ctx",
   "share-link.recordView": "increments a counter on an already-resolved row",
+
+  /*
+   * Push endpoints. The reminder sweep is not serving a request — it walks
+   * users itself and already knows whose reminder it is sending, so it passes
+   * the userId rather than a ctx it does not have. `markExpired` acts on a row
+   * the sender just tried and the push service rejected.
+   */
+  "push-subscription.activeForUser": "worker: takes an explicit userId",
+  "push-subscription.markExpired":
+    "worker: prunes a row it just failed to reach",
 };
 
 let available = false;

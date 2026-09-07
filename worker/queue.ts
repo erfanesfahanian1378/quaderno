@@ -13,6 +13,7 @@ export const QUEUES = {
   documentIngest: "document.ingest",
   documentOcr: "document.ocr",
   documentExport: "document.export",
+  reminders: "notifications.sweep",
   thumbnail: "document.thumbnail",
   timerReaper: "study.timer-reaper",
   accountDelete: "account.delete",

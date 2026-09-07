@@ -343,3 +343,81 @@ async function serveDocument(documentId, request) {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Push
+// ---------------------------------------------------------------------------
+
+/**
+ * A reminder arriving while the app is closed.
+ *
+ * This is the entire reason reminders go through Web Push rather than a timer
+ * in the page: a timer only runs while a tab is open, and the whole point of
+ * "ten minutes before your class" is being told when you are not looking.
+ *
+ * `event.waitUntil` is not optional. Without it the service worker can be
+ * killed the moment this handler returns, before the notification is shown —
+ * and on a phone that is most of the time.
+ */
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    // A push with no readable payload still deserves to surface: something was
+    // sent, and silence would look like the feature is broken.
+  }
+
+  const title = payload.title || "Quaderno";
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body || "",
+      // Same tag replaces rather than stacks, so a class cannot fill the
+      // lock screen with itself.
+      tag: payload.tag || "quaderno",
+      renotify: Boolean(payload.tag),
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url: payload.url || "/dashboard" },
+    }),
+  );
+});
+
+/**
+ * Tapping the notification.
+ *
+ * Focuses an already-open tab rather than opening a second one — a reminder
+ * that leaves four copies of the app behind is its own annoyance. An external
+ * meeting link is the exception and always opens fresh.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const target = event.notification.data?.url || "/dashboard";
+  const external = /^https?:\/\//i.test(target);
+
+  event.waitUntil(
+    (async () => {
+      if (external) {
+        await self.clients.openWindow(target);
+        return;
+      }
+
+      const url = new URL(target, self.location.origin);
+      const open = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      for (const client of open) {
+        if (new URL(client.url).origin !== url.origin) continue;
+        await client.focus();
+        if ("navigate" in client) await client.navigate(url.toString());
+        return;
+      }
+
+      await self.clients.openWindow(url.toString());
+    })(),
+  );
+});

@@ -56,7 +56,17 @@ const serverSchema = z.object({
   WORKER_CONVERT_TIMEOUT_MS: z.coerce.number().int().min(1000).default(120_000),
   STALE_TIMER_MINUTES: z.coerce.number().int().min(1).default(20),
 
-  MAX_UPLOAD_BYTES: z.coerce.number().int().default(52_428_800),
+  MAX_UPLOAD_BYTES: z.coerce.number().int().default(157_286_400),
+
+  /*
+   * Web Push. All three optional together: without them reminders are simply
+   * off, the settings page says so, and nothing else changes. A half-set
+   * configuration is the dangerous case, so the service checks all three
+   * before it will send anything.
+   */
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().optional(),
   DEFAULT_STORAGE_QUOTA_BYTES: z.coerce.number().int().default(2_147_483_648),
 
   LOG_LEVEL: z

@@ -9,6 +9,8 @@ import { LanguageSettings } from "@/components/settings/LanguageSettings";
 import { HighlighterLabels } from "@/components/settings/HighlighterLabels";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { SharedLinks } from "@/components/settings/SharedLinks";
+import { Reminders } from "@/components/settings/Reminders";
+import { publicKey } from "@/server/services/notifications/push";
 import * as shareLinks from "@/server/repositories/share-link";
 
 export const metadata = { title: "Settings" };
@@ -79,6 +81,19 @@ export default async function SettingsPage() {
             </p>
           </div>
           <ThemeToggle />
+        </Card>
+      </Section>
+
+      <Section
+        title="Reminders"
+        note="Ten minutes before a class, and a nudge to study. Sent even when the app is closed."
+      >
+        <Card className="p-4">
+          <Reminders
+            vapidPublicKey={publicKey()}
+            initialClassMinutes={user.notifyClassMinutes}
+            initialStudyAt={user.notifyStudyAt}
+          />
         </Card>
       </Section>
 

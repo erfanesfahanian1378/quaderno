@@ -31,27 +31,34 @@ model User {
   storageQuotaBytes BigInt @default(2147483648) // 2 GiB default
   storageUsedBytes  BigInt @default(0)
 
+  /// Minutes before a class to send a reminder. Null is off.
+  notifyClassMinutes Int?    @default(10)
+  /// Local wall time for the daily study nudge, "HH:MM". Null is off.
+  notifyStudyAt      String?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  accounts         Account[]
-  sessions         Session[]
-  languages        Language[]
-  courses          Course[]
-  classSessions    ClassSession[]
-  scheduledClasses ScheduledClass[]
-  documents        Document[]
-  annotations      Annotation[]
-  comments         Comment[]
-  studySessions    StudySession[]
-  weeklyGoals      WeeklyGoal[]
-  dayAggregates    StudyDayAggregate[]
-  reviewCards      ReviewCard[]
-  reviewLogs       ReviewLog[]
-  shareLinks       ShareLink[]
-  noteAssets       NoteAsset[]
-  folders          Folder[]
+  accounts          Account[]
+  sessions          Session[]
+  languages         Language[]
+  courses           Course[]
+  classSessions     ClassSession[]
+  scheduledClasses  ScheduledClass[]
+  documents         Document[]
+  annotations       Annotation[]
+  comments          Comment[]
+  studySessions     StudySession[]
+  weeklyGoals       WeeklyGoal[]
+  dayAggregates     StudyDayAggregate[]
+  reviewCards       ReviewCard[]
+  reviewLogs        ReviewLog[]
+  shareLinks        ShareLink[]
+  noteAssets        NoteAsset[]
+  folders           Folder[]
+  pushSubscriptions PushSubscription[]
+  notificationLogs  NotificationLog[]
 
   @@index([deletedAt])
 }
@@ -789,4 +796,62 @@ model Folder {
 
   @@index([userId, languageId, parentId])
   @@index([parentId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+/**
+ * One browser's push endpoint.
+ * A reminder that only fires while a tab is open is not a reminder — the whole
+ * point is being told about a class you are not currently thinking about. That
+ * needs Web Push, which needs a stored subscription per browser: someone with
+ * a laptop and a phone has two, and both should ring.
+ * `endpoint` is unique because it IS the identity of the browser. Re-
+ * subscribing after a permission reset produces the same endpoint, and an
+ * upsert on it is what keeps the table from growing a row per page load.
+ */
+model PushSubscription {
+  id     String @id @default(cuid())
+  userId String
+
+  endpoint String @unique @db.Text
+  /// The two keys from the browser's subscription, used to encrypt payloads.
+  p256dh   String
+  auth     String
+
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+  /// Set when the push service says the endpoint is gone (404/410).
+  expiredAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/**
+ * What has already been sent.
+ * The reminder sweep runs every minute, so without this a class fifteen
+ * minutes away would be announced fifteen times. The unique constraint is what
+ * makes "once" true even if two sweeps overlap — the insert fails rather than
+ * the second send being skipped by a check that raced.
+ */
+model NotificationLog {
+  id     String @id @default(cuid())
+  userId String
+
+  /// class | study
+  kind String
+  /// Dedupe key: the occurrence for a class, the day for a study nudge.
+  key  String
+
+  sentAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, key])
+  @@index([sentAt])
 }

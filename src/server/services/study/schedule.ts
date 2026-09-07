@@ -44,11 +44,17 @@ export async function upcoming(
   ctx: Ctx,
   days = 14,
   includePastDays = 14,
+  /**
+   * The moment to compute the window around. Injectable so a caller with its
+   * own clock — the reminder sweep — is fully deterministic; reading the real
+   * time here regardless would make `sweep(someDate)` only half controlled.
+   */
+  reference: Date = new Date(),
 ): Promise<Occurrence[]> {
   const rules = await scheduled.listActive(ctx);
   if (rules.length === 0) return [];
 
-  const now = new Date();
+  const now = reference;
   const from = new Date(now.getTime() - includePastDays * 86_400_000);
   const to = new Date(now.getTime() + days * 86_400_000);
 

@@ -14,6 +14,7 @@ import { registerNoop } from "./jobs/noop";
 import { registerIngest } from "./jobs/document-ingest";
 import { registerOcr } from "./jobs/document-ocr";
 import { registerExport } from "./jobs/document-export";
+import { registerReminders } from "./jobs/reminders";
 import { registerTimerReaper } from "./jobs/timer-reaper";
 
 async function main(): Promise<void> {
@@ -24,9 +25,10 @@ async function main(): Promise<void> {
   await registerIngest(boss);
   await registerOcr(boss);
   await registerExport(boss);
+  await registerReminders(boss);
   await registerTimerReaper(boss);
   console.log(
-    "[worker] registered: noop, document.ingest, document.ocr, document.export, study.timer-reaper",
+    "[worker] registered: noop, document.ingest, document.ocr, document.export, notifications.sweep, study.timer-reaper",
   );
 
   console.log("[worker] ready");

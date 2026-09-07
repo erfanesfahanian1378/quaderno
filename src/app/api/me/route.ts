@@ -13,6 +13,18 @@ const patchSchema = z.object({
   timeZone: z.string().trim().min(1).max(64).optional(),
   weekStartsOn: z.number().int().min(0).max(6).optional(),
   theme: z.enum(THEMES).optional(),
+
+  /*
+   * Reminders. Null is a real value here — it means "off" — so both are
+   * nullable rather than merely optional, and `undefined` still means "leave
+   * this alone".
+   */
+  notifyClassMinutes: z.number().int().min(1).max(180).nullable().optional(),
+  notifyStudyAt: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM")
+    .nullable()
+    .optional(),
 });
 
 export const GET = wrap(async () => {
