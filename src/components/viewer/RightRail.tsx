@@ -7,6 +7,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { EmptyState } from "@/components/ui";
 import { CommentThread, type CommentRow } from "./comments/CommentThread";
 import { cn } from "@/lib/cn";
+import { OfflineToggle } from "@/components/library/OfflineToggle";
 import {
   HIGHLIGHT_DEFAULT_LABELS,
   HIGHLIGHT_KEYS,
@@ -263,6 +264,8 @@ export function RightRail({
                 OCR from the page menu makes it highlightable.
               </div>
             ) : null}
+            <OfflineToggle documentId={doc.id} className="-ml-2 self-start" />
+
             <a
               href={`/api/documents/${doc.id}/original-url`}
               className="text-accent underline"

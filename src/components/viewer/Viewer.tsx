@@ -93,7 +93,14 @@ export function Viewer({
         return;
       }
 
-      setSourceUrl(result.data.url);
+      /*
+       * `__doc` marks this request for the service worker, which serves the
+       * cached body — including byte ranges — when the document is kept
+       * offline. pdf.js never knows the difference.
+       */
+      const withMarker = new URL(result.data.url);
+      withMarker.searchParams.set("__doc", doc.id);
+      setSourceUrl(withMarker.toString());
       setLoadError(null);
 
       const expiresIn =

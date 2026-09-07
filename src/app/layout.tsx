@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import { ThemeScript } from "@/components/theme/ThemeScript";
+import { OfflineProvider } from "@/components/offline/OfflineProvider";
 import "@/styles/globals.css";
 
 /*
@@ -44,6 +45,7 @@ export const metadata: Metadata = {
   description:
     "A study notebook for language learners. Your class, your marks, your pages, your hours — in one place.",
   applicationName: "Quaderno",
+  manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Quaderno", statusBarStyle: "default" },
   formatDetection: { telephone: false },
 };
@@ -73,6 +75,7 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body className="min-h-dvh bg-canvas font-ui text-body text-ink antialiased">
+        <OfflineProvider />
         {children}
       </body>
     </html>
