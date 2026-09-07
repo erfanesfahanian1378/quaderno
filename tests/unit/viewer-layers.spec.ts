@@ -76,20 +76,55 @@ describe("page layer stacking", () => {
     expect(source).toContain("<CreationSurface");
   });
 
-  it("does not capture the pointer for tap-placed tools", () => {
+  it("handles the tap-placed tools before taking pointer capture", () => {
     const source = read(
       "src/components/viewer/annotations/CreationSurface.tsx",
     );
 
-    // Capturing binds the pointer to the surface for the rest of the gesture,
-    // so the pointerup lands there rather than on the text box that just
-    // mounted — which blurs it, commits it empty and unmounts it.
-    const beforeCapture = source.slice(
+    const handler = source.slice(
       source.indexOf("const onPointerDown"),
-      source.indexOf("setPointerCapture"),
+      source.indexOf("const onPointerMove"),
     );
-    expect(beforeCapture).toContain('if (tool === "text")');
-    expect(beforeCapture).toContain('if (tool === "comment")');
+
+    // Capture binds the pointer to this surface for the rest of the gesture,
+    // so the pointerup lands here rather than on the composer that just
+    // opened — which blurs it and shuts the keyboard.
+    const tapBranch = handler.indexOf('tool === "text"');
+    const capture = handler.indexOf("setPointerCapture");
+
+    expect(tapBranch).toBeGreaterThan(-1);
+    expect(capture).toBeGreaterThan(-1);
+    expect(tapBranch).toBeLessThan(capture);
+  });
+
+  it("prevents the default that would steal focus back", () => {
+    const source = read(
+      "src/components/viewer/annotations/CreationSurface.tsx",
+    );
+
+    /*
+     * pointerdown's default action generates the compatibility mouse events,
+     * and mousedown's own default moves focus to whatever is under the
+     * cursor. Without preventDefault, focusing the composer and then letting
+     * the default run hands focus straight back to the page: the keyboard
+     * opens and shuts in the same gesture.
+     */
+    const handler = source.slice(
+      source.indexOf("const onPointerDown"),
+      source.indexOf("const onPointerMove"),
+    );
+    expect(handler).toContain("event.preventDefault()");
+  });
+
+  it("keeps the composer mounted so focus can be synchronous", () => {
+    const source = read("src/components/viewer/annotations/InlineComposer.tsx");
+
+    // A mobile browser only opens and KEEPS the keyboard when focus() runs
+    // synchronously inside the gesture. Creating the element on tap and
+    // focusing it even one frame later does not work.
+    expect(source).toContain("useImperativeHandle");
+    expect(source).toMatch(/element\.focus\(\)/);
+    expect(source).toContain("left: -9999");
   });
 });
 

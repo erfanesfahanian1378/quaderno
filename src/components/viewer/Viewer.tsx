@@ -18,7 +18,12 @@ import { AnnotationToolbar, type Tool } from "./annotations/Toolbar";
 import { SelectionPopover } from "./annotations/SelectionPopover";
 import { useTextSelection } from "./annotations/useTextSelection";
 import { CreationSurface } from "./annotations/CreationSurface";
-import { TextBoxEditor } from "./annotations/TextBoxEditor";
+import {
+  InlineComposer,
+  type ComposerResult,
+  type InlineComposerHandle,
+} from "./annotations/InlineComposer";
+import { PronouncePanel } from "./PronouncePanel";
 import { useInkCapture } from "./ink/useInkCapture";
 import {
   HIGHLIGHT_DEFAULT_LABELS,
@@ -43,6 +48,8 @@ export type ViewerDocument = {
   title: string;
   status: string;
   languageAccent: string;
+  /** ISO 639-1, for picking a read-aloud voice in the right accent. */
+  languageCode: string;
   hasTextLayer: boolean;
   conversionEngine: string | null;
   originalName: string | null;
@@ -115,11 +122,9 @@ export function Viewer({
   const [shape, setShape] = useState<"rect" | "ellipse" | "line" | "arrow">(
     "rect",
   );
-  const [pendingText, setPendingText] = useState<{
-    leafId: string;
-    x: number;
-    y: number;
-  } | null>(null);
+  const composerRef = useRef<InlineComposerHandle>(null);
+  const [pronounceOpen, setPronounceOpen] = useState(false);
+  const [pronounceText, setPronounceText] = useState("");
 
   // Insert-a-page: the rail asks, the picker chooses, the server places it.
   const [insertAfter, setInsertAfter] = useState<{
@@ -218,6 +223,10 @@ export function Viewer({
         geometry: { quads },
         quotedText,
       });
+
+      // Whatever you just marked becomes what the read-aloud panel offers,
+      // so highlighting a word and hearing it is two taps.
+      if (quotedText) setPronounceText(quotedText);
     },
     [annotations, highlightColor],
   );
@@ -246,18 +255,45 @@ export function Viewer({
     [annotations, inkColor],
   );
 
-  const createCommentPin = useCallback(
-    (leafId: string, x: number, y: number) => {
+  const onComposerCommit = useCallback(
+    (result: ComposerResult) => {
+      if (result.kind === "comment") {
+        // A pin carries the note as its own comment thread.
+        const pin = annotations.create({
+          kind: "COMMENT_PIN",
+          leafId: result.leafId,
+          color: inkColor,
+          opacity: 1,
+          zIndex: 2,
+          geometry: { x: result.x, y: result.y },
+        });
+
+        void api.post(`/api/documents/${doc.id}/comments`, {
+          body: result.text,
+          leafId: result.leafId,
+          ...(pin.id ? { annotationId: pin.id } : {}),
+        });
+        return;
+      }
+
       annotations.create({
-        kind: "COMMENT_PIN",
-        leafId,
+        kind: "TEXT_BOX",
+        leafId: result.leafId,
         color: inkColor,
         opacity: 1,
         zIndex: 2,
-        geometry: { x, y },
+        geometry: {
+          x: result.x,
+          y: result.y,
+          w: result.width,
+          h: result.height,
+          text: result.text,
+          fontSize: 0.022,
+          align: "left",
+        },
       });
     },
-    [annotations, inkColor],
+    [annotations, doc.id, inkColor],
   );
 
   const onAnnotationClick = useCallback(
@@ -481,40 +517,32 @@ export function Viewer({
                               shape={shape}
                               onHighlight={createHighlightFromDrag}
                               onShape={createShape}
+                              /*
+                                Both call the composer SYNCHRONOUSLY from the
+                                pointerdown handler. Anything deferred — even
+                                one frame — and the mobile keyboard opens and
+                                immediately dismisses itself.
+                              */
                               onTextBox={(leafId, x, y) =>
-                                setPendingText({ leafId, x, y })
+                                composerRef.current?.open({
+                                  kind: "text",
+                                  leafId,
+                                  x,
+                                  y,
+                                  pageWidth: renderedSize(geometry).width,
+                                  pageHeight: renderedSize(geometry).height,
+                                })
                               }
-                              onCommentPin={createCommentPin}
-                            />
-                          ) : null}
-
-                          {pendingText?.leafId === leaf.id ? (
-                            <TextBoxEditor
-                              x={pendingText.x}
-                              y={pendingText.y}
-                              color={inkColor}
-                              pageWidth={renderedSize(geometry).width}
-                              pageHeight={renderedSize(geometry).height}
-                              onCancel={() => setPendingText(null)}
-                              onCommit={(text, width, height) => {
-                                annotations.create({
-                                  kind: "TEXT_BOX",
-                                  leafId: leaf.id,
-                                  color: inkColor,
-                                  opacity: 1,
-                                  zIndex: 2,
-                                  geometry: {
-                                    x: pendingText.x,
-                                    y: pendingText.y,
-                                    w: width,
-                                    h: height,
-                                    text,
-                                    fontSize: 0.022,
-                                    align: "left",
-                                  },
-                                });
-                                setPendingText(null);
-                              }}
+                              onCommentPin={(leafId, x, y) =>
+                                composerRef.current?.open({
+                                  kind: "comment",
+                                  leafId,
+                                  x,
+                                  y,
+                                  pageWidth: renderedSize(geometry).width,
+                                  pageHeight: renderedSize(geometry).height,
+                                })
+                              }
                             />
                           ) : null}
                         </>
@@ -558,6 +586,19 @@ export function Viewer({
         />
       ) : null}
 
+      <InlineComposer
+        ref={composerRef}
+        color={inkColor}
+        onCommit={onComposerCommit}
+      />
+
+      <PronouncePanel
+        languageCode={doc.languageCode}
+        open={pronounceOpen}
+        initialText={pronounceText}
+        onClose={() => setPronounceOpen(false)}
+      />
+
       <AnnotationToolbar
         tool={tool}
         onToolChange={setTool}
@@ -571,6 +612,8 @@ export function Viewer({
         onShapeChange={setShape}
         onUndo={annotations.undo}
         canUndo={annotations.canUndo}
+        onPronounce={() => setPronounceOpen((value) => !value)}
+        pronounceOpen={pronounceOpen}
         labels={HIGHLIGHT_DEFAULT_LABELS}
       />
 

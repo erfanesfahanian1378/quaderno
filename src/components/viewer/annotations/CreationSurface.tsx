@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { rectToQuad, toNormalised, type PageGeometry } from "../coords";
+import { toNormalised, type PageGeometry } from "../coords";
 import type { Tool } from "./Toolbar";
 import type { HighlightKey, InkKey } from "@/lib/tokens";
 
@@ -49,6 +49,72 @@ export type CreationSurfaceProps = {
 };
 
 type Drag = { x1: number; y1: number; x2: number; y2: number };
+type Point = { x: number; y: number };
+
+/** Nib height as a fraction of page height — about 14px on A4 at 100%. */
+const HIGHLIGHTER_NIB = 0.017;
+
+/**
+ * A highlighter band along the path the finger actually took.
+ *
+ * The previous version snapped to text lines by intersecting the drag with
+ * the text layer's spans. That is clever and it is wrong: on a phone your
+ * finger wanders, the nearest line is often not the one you meant, and a
+ * highlight that lands somewhere you did not point at is worse than no
+ * highlight. A real highlighter marks where you drag it. So does this.
+ *
+ * Emitted as axis-aligned quads because that is what the HIGHLIGHT geometry
+ * is, what the export bakes, and what a PDF /Highlight annotation uses. One
+ * quad per sampled segment; at this sampling rate a diagonal reads as a
+ * smooth band rather than a staircase.
+ */
+function bandFromPath(
+  path: Point[],
+  nib: number,
+): { x: number; y: number; w: number; h: number }[] {
+  if (path.length === 0) return [];
+
+  const half = nib / 2;
+  const clamp = (value: number) => Math.min(1, Math.max(0, value));
+
+  if (path.length === 1) {
+    const only = path[0]!;
+    return [
+      {
+        x: clamp(only.x - half),
+        y: clamp(only.y - half),
+        w: nib,
+        h: nib,
+      },
+    ];
+  }
+
+  const quads: { x: number; y: number; w: number; h: number }[] = [];
+
+  for (let i = 1; i < path.length; i += 1) {
+    const from = path[i - 1]!;
+    const to = path[i]!;
+
+    const left = Math.min(from.x, to.x);
+    const right = Math.max(from.x, to.x);
+    const top = Math.min(from.y, to.y) - half;
+    const bottom = Math.max(from.y, to.y) + half;
+
+    quads.push({
+      x: clamp(left),
+      y: clamp(top),
+      // A perfectly vertical segment still needs width to be visible.
+      w: Math.max(nib * 0.35, clamp(right) - clamp(left)),
+      h: clamp(bottom) - clamp(top),
+    });
+  }
+
+  // Bound the payload. A long swipe does not need a thousand rectangles.
+  if (quads.length <= 240) return quads;
+
+  const step = Math.ceil(quads.length / 240);
+  return quads.filter((_, index) => index % step === 0);
+}
 
 export function CreationSurface({
   tool,
@@ -64,7 +130,11 @@ export function CreationSurface({
 }: CreationSurfaceProps) {
   const surfaceRef = useRef<SVGSVGElement>(null);
   const pointerId = useRef<number | null>(null);
+  const path = useRef<Point[]>([]);
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [band, setBand] = useState<
+    { x: number; y: number; w: number; h: number }[]
+  >([]);
 
   const pointFrom = (event: React.PointerEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -86,13 +156,21 @@ export function CreationSurface({
      * empty, and unmounts itself. The symptom is a tool that appears to do
      * nothing at all.
      */
-    if (tool === "text") {
-      onTextBox(leafId, point.x, point.y);
-      return;
-    }
+    if (tool === "text" || tool === "comment") {
+      /*
+       * preventDefault is what makes the keyboard stay open.
+       *
+       * A pointerdown's default action generates the compatibility mouse
+       * events, and mousedown's own default is to move focus to whatever is
+       * under the cursor. So focusing the composer here and then letting the
+       * default run hands focus straight back to the page — the keyboard
+       * opens and shuts in the same gesture, which is exactly the reported
+       * symptom.
+       */
+      event.preventDefault();
 
-    if (tool === "comment") {
-      onCommentPin(leafId, point.x, point.y);
+      if (tool === "text") onTextBox(leafId, point.x, point.y);
+      else onCommentPin(leafId, point.x, point.y);
       return;
     }
 
@@ -100,12 +178,28 @@ export function CreationSurface({
     // leaves the page.
     event.currentTarget.setPointerCapture(event.pointerId);
     pointerId.current = event.pointerId;
+    path.current = [{ x: point.x, y: point.y }];
+    setBand([]);
     setDrag({ x1: point.x, y1: point.y, x2: point.x, y2: point.y });
   };
 
   const onPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
     if (pointerId.current !== event.pointerId || !drag) return;
     const point = pointFrom(event);
+
+    if (tool === "highlight") {
+      const last = path.current[path.current.length - 1];
+      // Sample rather than record every event: a band does not need
+      // sub-pixel resolution and the payload stays small.
+      if (
+        !last ||
+        Math.hypot(point.x - last.x, point.y - last.y) > HIGHLIGHTER_NIB * 0.3
+      ) {
+        path.current.push({ x: point.x, y: point.y });
+        setBand(bandFromPath(path.current, HIGHLIGHTER_NIB));
+      }
+    }
+
     setDrag({ ...drag, x2: point.x, y2: point.y });
   };
 
@@ -122,12 +216,19 @@ export function CreationSurface({
       Math.abs(current.y2 - current.y1) > 0.004;
 
     if (tool === "highlight") {
+      const quads = bandFromPath(path.current, HIGHLIGHTER_NIB);
+      path.current = [];
+      setBand([]);
+
       // A tap with the highlighter is not a mistake worth acting on.
-      if (!moved) return;
-      const found = textUnderDrag(event.currentTarget, current, geometry);
-      if (found.quads.length > 0) {
-        onHighlight(leafId, found.quads, found.text);
-      }
+      if (!moved || quads.length === 0) return;
+
+      /*
+       * The band is what gets drawn. The text under it is still captured, for
+       * the annotations list, for search, and for the read-aloud panel — the
+       * user does not see this and it costs one pass over the spans.
+       */
+      onHighlight(leafId, quads, textUnderQuads(event.currentTarget, quads));
       return;
     }
 
@@ -161,16 +262,19 @@ export function CreationSurface({
       }}
     >
       {/* Live preview, so the gesture is visible while it happens. */}
-      {drag && tool === "highlight" ? (
-        <rect
-          x={Math.min(drag.x1, drag.x2)}
-          y={Math.min(drag.y1, drag.y2)}
-          width={Math.abs(drag.x2 - drag.x1)}
-          height={Math.abs(drag.y2 - drag.y1)}
-          fill={previewColor}
-          opacity={0.35}
-        />
-      ) : null}
+      {tool === "highlight" && band.length > 0
+        ? band.map((quad, index) => (
+            <rect
+              key={index}
+              x={quad.x}
+              y={quad.y}
+              width={quad.w}
+              height={quad.h}
+              fill={previewColor}
+              opacity={0.4}
+            />
+          ))
+        : null}
 
       {drag && tool === "shape" ? (
         <ShapePreview drag={drag} shape={shape} color={previewColor} />
@@ -225,98 +329,52 @@ function ShapePreview({
 }
 
 /**
- * Finds the text the drag crossed.
- *
- * Rather than asking the browser for a selection, this intersects the drag
- * rectangle with the text layer's spans directly. That is what makes
- * press-drag-release work identically with a finger, a pen and a mouse, and
- * it sidesteps the native selection UI entirely.
- *
- * Rects are then merged by line, for the same reason the selection path merges
- * them: pdf.js emits one span per text run, and three runs on one line must
- * become one bar, not three.
+ * The text sitting under a band, for the annotations list, search and the
+ * read-aloud panel. Purely informational — it never moves the mark.
  */
-function textUnderDrag(
+function textUnderQuads(
   surface: SVGSVGElement,
-  drag: Drag,
-  geometry: PageGeometry,
-): { quads: { x: number; y: number; w: number; h: number }[]; text: string } {
+  quads: { x: number; y: number; w: number; h: number }[],
+): string {
   const page = surface.parentElement;
-  if (!page) return { quads: [], text: "" };
-
-  const layer = page.querySelector(".textLayer");
-  if (!layer) return { quads: [], text: "" };
+  const layer = page?.querySelector(".textLayer");
+  if (!page || !layer) return "";
 
   const pageRect = page.getBoundingClientRect();
-
-  // The drag, back in CSS pixels relative to the page.
-  const left = Math.min(drag.x1, drag.x2) * pageRect.width;
-  const right = Math.max(drag.x1, drag.x2) * pageRect.width;
-  const top = Math.min(drag.y1, drag.y2) * pageRect.height;
-  const bottom = Math.max(drag.y1, drag.y2) * pageRect.height;
-
-  // A thin horizontal swipe is the normal highlighter gesture, so give it
-  // some vertical tolerance rather than demanding a pixel-perfect band.
-  const padY = Math.max(4, (bottom - top) * 0.15);
-
-  type Hit = {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    text: string;
-  };
-  const hits: Hit[] = [];
+  const seen = new Set<string>();
+  const found: { x: number; y: number; text: string }[] = [];
 
   for (const node of layer.querySelectorAll("span")) {
     const text = node.textContent ?? "";
     if (!text.trim()) continue;
 
     const box = node.getBoundingClientRect();
-    const x = box.left - pageRect.left;
-    const y = box.top - pageRect.top;
+    const x = (box.left - pageRect.left) / pageRect.width;
+    const y = (box.top - pageRect.top) / pageRect.height;
+    const w = box.width / pageRect.width;
+    const h = box.height / pageRect.height;
 
-    const overlapsX = x < right && x + box.width > left;
-    const overlapsY = y < bottom + padY && y + box.height > top - padY;
+    const hit = quads.some(
+      (quad) =>
+        x < quad.x + quad.w &&
+        x + w > quad.x &&
+        y < quad.y + quad.h &&
+        y + h > quad.y,
+    );
 
-    if (overlapsX && overlapsY) {
-      hits.push({ x, y, width: box.width, height: box.height, text });
+    if (hit) {
+      const key = `${Math.round(y * 1e4)}:${Math.round(x * 1e4)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        found.push({ x, y, text });
+      }
     }
   }
 
-  if (hits.length === 0) return { quads: [], text: "" };
-
-  // Merge by line, exactly as the selection path does.
-  const lines: Hit[][] = [];
-  for (const hit of hits.sort((a, b) => a.y - b.y || a.x - b.x)) {
-    const line = lines.find((candidate) => {
-      const first = candidate[0]!;
-      const tolerance = Math.max(first.height, hit.height) * 0.4;
-      return (
-        Math.abs(first.y + first.height - (hit.y + hit.height)) <= tolerance
-      );
-    });
-    if (line) line.push(hit);
-    else lines.push([hit]);
-  }
-
-  const quads = lines.map((line) => {
-    const x = Math.min(...line.map((hit) => hit.x));
-    const right2 = Math.max(...line.map((hit) => hit.x + hit.width));
-    const y = Math.min(...line.map((hit) => hit.y));
-    const bottom2 = Math.max(...line.map((hit) => hit.y + hit.height));
-
-    return rectToQuad(
-      { x, y, width: right2 - x, height: bottom2 - y },
-      geometry,
-    );
-  });
-
-  const text = lines
-    .map((line) => line.map((hit) => hit.text).join(""))
-    .join(" ")
+  return found
+    .sort((a, b) => a.y - b.y || a.x - b.x)
+    .map((entry) => entry.text)
+    .join("")
     .replace(/\s+/g, " ")
     .trim();
-
-  return { quads, text };
 }

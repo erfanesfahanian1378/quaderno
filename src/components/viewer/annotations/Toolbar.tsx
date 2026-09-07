@@ -49,6 +49,8 @@ export function AnnotationToolbar({
   onShapeChange,
   onUndo,
   canUndo,
+  onPronounce,
+  pronounceOpen,
   labels,
 }: {
   tool: Tool;
@@ -63,6 +65,8 @@ export function AnnotationToolbar({
   onShapeChange: (shape: ShapeKind) => void;
   onUndo: () => void;
   canUndo: boolean;
+  onPronounce: () => void;
+  pronounceOpen: boolean;
   labels: Record<HighlightKey, string>;
 }) {
   return (
@@ -248,6 +252,27 @@ export function AnnotationToolbar({
 
         <span aria-hidden="true" className="mx-1 h-7 w-px bg-hairline" />
 
+        {/*
+          Read aloud. It sits in the tool pill rather than a menu because
+          hearing a word is something you do constantly while reading in a
+          language you are learning, not occasionally.
+        */}
+        <button
+          type="button"
+          onClick={onPronounce}
+          aria-pressed={pronounceOpen}
+          aria-label="Read aloud"
+          title="Read aloud"
+          className={cn(
+            "grid size-12 shrink-0 place-items-center rounded-full transition-colors duration-[120ms]",
+            pronounceOpen
+              ? "bg-accent text-accent-on"
+              : "text-ink-2 hover:bg-subtle hover:text-ink",
+          )}
+        >
+          <SpeakIcon />
+        </button>
+
         <button
           type="button"
           onClick={onUndo}
@@ -323,6 +348,25 @@ function ShapeGlyph({ kind }: { kind: ShapeKind }) {
           <path d="M13 6h6v6" />
         </g>
       ) : null}
+    </svg>
+  );
+}
+
+function SpeakIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="size-5"
+    >
+      <path d="M11 5 6.5 9H3.5v6h3L11 19z" />
+      <path d="M14.5 9.5a3.5 3.5 0 0 1 0 5" />
+      <path d="M17 7a7 7 0 0 1 0 10" />
     </svg>
   );
 }
