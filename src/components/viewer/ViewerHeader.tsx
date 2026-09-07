@@ -32,6 +32,9 @@ export function ViewerHeader({
   onFitWidth,
   railOpen,
   onToggleRail,
+  panelOpen,
+  onTogglePanel,
+  markCount,
 }: {
   syncState: SyncState;
   document: ViewerDocument;
@@ -43,6 +46,9 @@ export function ViewerHeader({
   onFitWidth: () => void;
   railOpen: boolean;
   onToggleRail: () => void;
+  panelOpen: boolean;
+  onTogglePanel: () => void;
+  markCount: number;
 }) {
   const [overflowOpen, setOverflowOpen] = useState(false);
 
@@ -77,6 +83,23 @@ export function ViewerHeader({
       <div className="hidden shrink-0 items-center gap-2 sm:flex">
         <SyncIndicator state={syncState} />
         <ExportMenu documentId={doc.id} title={doc.title} />
+
+        <button
+          type="button"
+          onClick={onTogglePanel}
+          aria-pressed={panelOpen}
+          className={cn(
+            "flex h-9 items-center gap-1.5 rounded-sm px-3 text-label",
+            panelOpen ? "bg-subtle text-ink" : "text-ink-2 hover:bg-subtle",
+          )}
+        >
+          Marks
+          {markCount > 0 ? (
+            <span className="rounded-full bg-inset px-1.5 text-caption tabular">
+              {markCount}
+            </span>
+          ) : null}
+        </button>
 
         <button
           type="button"
@@ -122,6 +145,18 @@ export function ViewerHeader({
           goes behind one overflow button. */}
       <div className="flex shrink-0 items-center gap-1 sm:hidden">
         <SyncIndicator state={syncState} />
+        <button
+          type="button"
+          onClick={onTogglePanel}
+          aria-pressed={panelOpen}
+          aria-label="Marks and comments"
+          className="relative grid size-10 place-items-center rounded-sm text-ink-2 hover:bg-subtle hover:text-ink"
+        >
+          <MarksIcon />
+          {markCount > 0 ? (
+            <span className="absolute right-1 top-1 size-1.5 rounded-full bg-accent" />
+          ) : null}
+        </button>
         <button
           type="button"
           onClick={() => setOverflowOpen((open) => !open)}
@@ -190,5 +225,22 @@ export function ViewerHeader({
         </>
       ) : null}
     </header>
+  );
+}
+
+function MarksIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="size-5"
+    >
+      <path d="M5 5h14M5 10h9M5 15h11M5 20h6" />
+    </svg>
   );
 }

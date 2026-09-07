@@ -24,6 +24,7 @@ import {
   type InlineComposerHandle,
 } from "./annotations/InlineComposer";
 import { PronouncePanel } from "./PronouncePanel";
+import { RightRail } from "./RightRail";
 import { useInkCapture } from "./ink/useInkCapture";
 import {
   HIGHLIGHT_DEFAULT_LABELS,
@@ -51,6 +52,7 @@ export type ViewerDocument = {
   /** ISO 639-1, for picking a read-aloud voice in the right accent. */
   languageCode: string;
   hasTextLayer: boolean;
+  leafCount: number;
   conversionEngine: string | null;
   originalName: string | null;
 };
@@ -124,6 +126,7 @@ export function Viewer({
   );
   const composerRef = useRef<InlineComposerHandle>(null);
   const [pronounceOpen, setPronounceOpen] = useState(false);
+  const [railOpenRight, setRailOpenRight] = useState(false);
   const [pronounceText, setPronounceText] = useState("");
 
   // Insert-a-page: the rail asks, the picker chooses, the server places it.
@@ -329,6 +332,29 @@ export function Viewer({
     return () => observer.disconnect();
   }, [fitWidth]);
 
+  const jumpToLeaf = useCallback(
+    (leafId: string) => {
+      const index = leaves.findIndex((leaf) => leaf.id === leafId);
+      if (index < 0) return;
+
+      const target = scrollRef.current?.querySelector(
+        `[data-page-index="${index + 1}"]`,
+      );
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      // Pulse the page so the eye lands on the right one.
+      const page = target?.querySelector(`[data-leaf-id="${leafId}"]`);
+      if (page instanceof HTMLElement) {
+        page.classList.add("ring-2", "ring-accent");
+        setTimeout(() => page.classList.remove("ring-2", "ring-accent"), 900);
+      }
+
+      // On a phone the sheet covers the page it just scrolled to.
+      if (window.innerWidth < 1024) setRailOpenRight(false);
+    },
+    [leaves],
+  );
+
   const jumpTo = useCallback((index: number) => {
     const container = scrollRef.current;
     const target = container?.querySelector(`[data-page-index="${index}"]`);
@@ -405,6 +431,13 @@ export function Viewer({
         onFitWidth={() => setFitWidth(true)}
         railOpen={railOpen}
         onToggleRail={() => setRailOpen((open) => !open)}
+        panelOpen={railOpenRight}
+        onTogglePanel={() => setRailOpenRight((open) => !open)}
+        markCount={
+          annotations.all.filter((a) =>
+            ["HIGHLIGHT", "UNDERLINE", "STRIKETHROUGH"].includes(a.kind),
+          ).length
+        }
       />
 
       <div className="flex min-h-0 flex-1">
@@ -562,6 +595,15 @@ export function Viewer({
             </p>
           ) : null}
         </div>
+
+        <RightRail
+          document={doc}
+          annotations={annotations.all}
+          open={railOpenRight}
+          onClose={() => setRailOpenRight(false)}
+          onJumpToLeaf={jumpToLeaf}
+          labels={HIGHLIGHT_DEFAULT_LABELS}
+        />
       </div>
 
       {insertAfter ? (
