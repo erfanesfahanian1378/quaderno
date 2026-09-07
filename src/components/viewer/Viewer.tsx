@@ -17,6 +17,8 @@ import { AnnotationLayer } from "./annotations/AnnotationLayer";
 import { AnnotationToolbar, type Tool } from "./annotations/Toolbar";
 import { SelectionPopover } from "./annotations/SelectionPopover";
 import { useTextSelection } from "./annotations/useTextSelection";
+import { CreationSurface } from "./annotations/CreationSurface";
+import { TextBoxEditor } from "./annotations/TextBoxEditor";
 import { useInkCapture } from "./ink/useInkCapture";
 import {
   HIGHLIGHT_DEFAULT_LABELS,
@@ -25,7 +27,7 @@ import {
   type InkKey,
   type InkWidthKey,
 } from "@/lib/tokens";
-import type { PageGeometry } from "./coords";
+import { renderedSize, type PageGeometry } from "./coords";
 
 export type ViewerLeaf = {
   id: string;
@@ -110,6 +112,14 @@ export function Viewer({
   const [inkColor, setInkColor] = useState<InkKey>("ink-black");
   const [inkWidth, setInkWidth] = useState<InkWidthKey>("medium");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [shape, setShape] = useState<"rect" | "ellipse" | "line" | "arrow">(
+    "rect",
+  );
+  const [pendingText, setPendingText] = useState<{
+    leafId: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Insert-a-page: the rail asks, the picker chooses, the server places it.
   const [insertAfter, setInsertAfter] = useState<{
@@ -146,7 +156,7 @@ export function Viewer({
   const { selection, clear: clearSelection } = useTextSelection(
     scrollRef,
     geometryFor,
-    tool === "select" || tool === "highlight",
+    tool === "select",
   );
 
   const addTextMark = useCallback(
@@ -187,6 +197,68 @@ export function Viewer({
       });
     },
   });
+
+  /**
+   * Drag-to-highlight. This is what the highlight TOOL does — press, drag
+   * across the words, release — as opposed to the selection popover, which
+   * still handles the desktop "select text first" habit.
+   */
+  const createHighlightFromDrag = useCallback(
+    (
+      leafId: string,
+      quads: { x: number; y: number; w: number; h: number }[],
+      quotedText: string,
+    ) => {
+      annotations.create({
+        kind: "HIGHLIGHT",
+        leafId,
+        color: highlightColor,
+        opacity: 0.4,
+        zIndex: 0,
+        geometry: { quads },
+        quotedText,
+      });
+    },
+    [annotations, highlightColor],
+  );
+
+  const createShape = useCallback(
+    (
+      leafId: string,
+      shapeGeometry: {
+        shape: string;
+        x1: number;
+        y1: number;
+        x2: number;
+        y2: number;
+        strokeW: number;
+      },
+    ) => {
+      annotations.create({
+        kind: "SHAPE",
+        leafId,
+        color: inkColor,
+        opacity: 1,
+        zIndex: 1,
+        geometry: shapeGeometry,
+      });
+    },
+    [annotations, inkColor],
+  );
+
+  const createCommentPin = useCallback(
+    (leafId: string, x: number, y: number) => {
+      annotations.create({
+        kind: "COMMENT_PIN",
+        leafId,
+        color: inkColor,
+        opacity: 1,
+        zIndex: 2,
+        geometry: { x, y },
+      });
+    },
+    [annotations, inkColor],
+  );
 
   const onAnnotationClick = useCallback(
     (annotation: { clientId: string }) => {
@@ -356,9 +428,9 @@ export function Viewer({
                       label={leaf.label ?? String(pageNumber)}
                       leafId={leaf.id}
                       interaction={
-                        tool === "select" || tool === "highlight"
-                          ? "text"
-                          : "draw"
+                        // Only plain select keeps the text layer live now:
+                        // the highlight tool drags on its own surface.
+                        tool === "select" ? "text" : "draw"
                       }
                       onGeometry={(geometry) =>
                         geometries.current.set(leaf.id, geometry)
@@ -390,6 +462,61 @@ export function Viewer({
                               onPointerCancel={ink.handlers.onPointerCancel}
                             />
                           ) : null}
+
+                          {/*
+                            Everything that is not the pen and not plain
+                            selection: drag to highlight, drag a shape, tap to
+                            place a text box or a comment pin.
+                          */}
+                          {tool === "highlight" ||
+                          tool === "shape" ||
+                          tool === "text" ||
+                          tool === "comment" ? (
+                            <CreationSurface
+                              tool={tool}
+                              leafId={leaf.id}
+                              geometry={geometry}
+                              highlightColor={highlightColor}
+                              inkColor={inkColor}
+                              shape={shape}
+                              onHighlight={createHighlightFromDrag}
+                              onShape={createShape}
+                              onTextBox={(leafId, x, y) =>
+                                setPendingText({ leafId, x, y })
+                              }
+                              onCommentPin={createCommentPin}
+                            />
+                          ) : null}
+
+                          {pendingText?.leafId === leaf.id ? (
+                            <TextBoxEditor
+                              x={pendingText.x}
+                              y={pendingText.y}
+                              color={inkColor}
+                              pageWidth={renderedSize(geometry).width}
+                              pageHeight={renderedSize(geometry).height}
+                              onCancel={() => setPendingText(null)}
+                              onCommit={(text, width, height) => {
+                                annotations.create({
+                                  kind: "TEXT_BOX",
+                                  leafId: leaf.id,
+                                  color: inkColor,
+                                  opacity: 1,
+                                  zIndex: 2,
+                                  geometry: {
+                                    x: pendingText.x,
+                                    y: pendingText.y,
+                                    w: width,
+                                    h: height,
+                                    text,
+                                    fontSize: 0.022,
+                                    align: "left",
+                                  },
+                                });
+                                setPendingText(null);
+                              }}
+                            />
+                          ) : null}
                         </>
                       )}
                     </PdfPage>
@@ -416,7 +543,7 @@ export function Viewer({
         />
       ) : null}
 
-      {selection && (tool === "select" || tool === "highlight") ? (
+      {selection && tool === "select" ? (
         <SelectionPopover
           selection={selection}
           labels={HIGHLIGHT_DEFAULT_LABELS}
@@ -440,6 +567,8 @@ export function Viewer({
         onInkColor={setInkColor}
         inkWidth={inkWidth}
         onInkWidth={setInkWidth}
+        shape={shape}
+        onShapeChange={setShape}
         onUndo={annotations.undo}
         canUndo={annotations.canUndo}
         labels={HIGHLIGHT_DEFAULT_LABELS}

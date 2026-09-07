@@ -20,6 +20,8 @@ import {
   type InkWidthKey,
 } from "@/lib/tokens";
 
+export type ShapeKind = "rect" | "ellipse" | "line" | "arrow";
+
 export type Tool =
   "select" | "highlight" | "pen" | "eraser" | "text" | "shape" | "comment";
 
@@ -43,6 +45,8 @@ export function AnnotationToolbar({
   onInkColor,
   inkWidth,
   onInkWidth,
+  shape,
+  onShapeChange,
   onUndo,
   canUndo,
   labels,
@@ -55,6 +59,8 @@ export function AnnotationToolbar({
   onInkColor: (color: InkKey) => void;
   inkWidth: InkWidthKey;
   onInkWidth: (width: InkWidthKey) => void;
+  shape: ShapeKind;
+  onShapeChange: (shape: ShapeKind) => void;
   onUndo: () => void;
   canUndo: boolean;
   labels: Record<HighlightKey, string>;
@@ -140,6 +146,34 @@ export function AnnotationToolbar({
               </button>
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {tool === "shape" ? (
+        <div className="pointer-events-auto flex max-w-[calc(100vw-16px)] flex-wrap items-center justify-center gap-1 rounded-lg border border-hairline bg-surface p-1.5 shadow-e2 sm:rounded-full">
+          {(
+            [
+              ["rect", "Rectangle"],
+              ["ellipse", "Circle"],
+              ["line", "Line"],
+              ["arrow", "Arrow"],
+            ] as const
+          ).map(([kind, label]) => (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => onShapeChange(kind)}
+              aria-pressed={shape === kind}
+              aria-label={label}
+              className={cn(
+                "flex h-11 items-center gap-2 rounded-full px-3 text-caption transition-colors duration-[120ms]",
+                shape === kind ? "bg-subtle text-ink" : "text-ink-2",
+              )}
+            >
+              <ShapeGlyph kind={kind} />
+              {label}
+            </button>
+          ))}
         </div>
       ) : null}
 
@@ -261,5 +295,34 @@ function ToolButton({
     >
       {children}
     </button>
+  );
+}
+
+function ShapeGlyph({ kind }: { kind: ShapeKind }) {
+  const common = {
+    stroke: "currentColor",
+    fill: "none",
+    strokeWidth: 1.5,
+    strokeLinecap: "round" as const,
+  };
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5">
+      {kind === "rect" ? (
+        <rect x="4" y="6" width="16" height="12" rx="1.5" {...common} />
+      ) : null}
+      {kind === "ellipse" ? (
+        <ellipse cx="12" cy="12" rx="8" ry="6" {...common} />
+      ) : null}
+      {kind === "line" ? (
+        <line x1="5" y1="18" x2="19" y2="6" {...common} />
+      ) : null}
+      {kind === "arrow" ? (
+        <g {...common}>
+          <line x1="5" y1="18" x2="19" y2="6" />
+          <path d="M13 6h6v6" />
+        </g>
+      ) : null}
+    </svg>
   );
 }
