@@ -355,6 +355,11 @@ export function Viewer({
                       active={isInWindow(pageNumber)}
                       label={leaf.label ?? String(pageNumber)}
                       leafId={leaf.id}
+                      interaction={
+                        tool === "select" || tool === "highlight"
+                          ? "text"
+                          : "draw"
+                      }
                       onGeometry={(geometry) =>
                         geometries.current.set(leaf.id, geometry)
                       }
@@ -371,7 +376,7 @@ export function Viewer({
                           {/* The ink capture surface, above the marks. */}
                           {tool === "pen" ? (
                             <svg
-                              className="absolute inset-0 size-full touch-none"
+                              className="absolute inset-0 z-30 size-full touch-none"
                               style={{ color: `var(--${inkColor})` }}
                               onPointerDown={(event) =>
                                 ink.handlers.onPointerDown(

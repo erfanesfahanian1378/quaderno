@@ -37,8 +37,13 @@ export const AnnotationLayer = memo(function AnnotationLayer({
 
   return (
     <>
+      {/*
+        z-20, above the text layer's z-1. Marks that sit *under* the text
+        layer cannot be tapped — the eraser and mark selection both silently
+        do nothing.
+      */}
       <svg
-        className="pointer-events-none absolute inset-0 size-full"
+        className="pointer-events-none absolute inset-0 z-20 size-full"
         viewBox="0 0 1 1"
         preserveAspectRatio="none"
         aria-hidden={annotations.length === 0}
@@ -331,7 +336,7 @@ function TextBoxMark({
       onKeyDown={(event) => {
         if (event.key === "Enter") onSelect?.(annotation);
       }}
-      className="absolute cursor-pointer whitespace-pre-wrap break-words"
+      className="absolute z-20 cursor-pointer whitespace-pre-wrap break-words"
       style={{
         // Percentages, so the box inherits the SVG's zoom behaviour without
         // any recomputation of its own.

@@ -63,7 +63,15 @@ export function AnnotationToolbar({
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 pb-[calc(16px+env(safe-area-inset-bottom))] lg:pb-16">
       {/* The colour swatches expand UPWARD out of the pill, per the brief. */}
       {tool === "highlight" ? (
-        <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-hairline bg-surface p-1.5 shadow-e2">
+        /*
+          Wraps rather than overflowing. Five swatches with their labels are
+          far wider than a phone, and an overflowing row put "grammar" off the
+          left edge and "question" off the right — both unreachable. The
+          labels cannot simply be dropped: colour is never the only channel
+          (DESIGN_BRIEF §8), and "yellow" means nothing while "grammar" means
+          everything.
+        */
+        <div className="pointer-events-auto flex max-w-[calc(100vw-16px)] flex-wrap items-center justify-center gap-1 rounded-lg border border-hairline bg-surface p-1.5 shadow-e2 sm:rounded-full">
           {HIGHLIGHT_KEYS.map((key) => (
             <button
               key={key}
@@ -76,6 +84,7 @@ export function AnnotationToolbar({
                 "flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-caption transition-colors duration-[120ms]",
                 highlightColor === key ? "bg-subtle text-ink" : "text-ink-2",
               )}
+              style={{ whiteSpace: "nowrap" }}
             >
               <span
                 className="size-7 rounded-full border border-hairline"
@@ -88,7 +97,7 @@ export function AnnotationToolbar({
       ) : null}
 
       {tool === "pen" ? (
-        <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-hairline bg-surface px-3 py-2 shadow-e2">
+        <div className="pointer-events-auto flex max-w-[calc(100vw-16px)] flex-wrap items-center justify-center gap-3 rounded-lg border border-hairline bg-surface px-3 py-2 shadow-e2 sm:rounded-full">
           <div className="flex gap-1.5">
             {INK_KEYS.map((key) => (
               <button
@@ -137,7 +146,7 @@ export function AnnotationToolbar({
       <div
         role="toolbar"
         aria-label="Annotation tools"
-        className="pointer-events-auto flex items-center gap-1 rounded-full border border-hairline bg-surface p-1.5 shadow-e2"
+        className="pointer-events-auto flex max-w-[calc(100vw-16px)] items-center gap-0.5 overflow-x-auto rounded-full border border-hairline bg-surface p-1.5 shadow-e2 sm:gap-1"
       >
         <ToolButton
           tool="select"

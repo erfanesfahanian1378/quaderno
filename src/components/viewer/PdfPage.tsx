@@ -27,6 +27,19 @@ export type PdfPageProps = {
   /** Off-window pages render a correctly-sized placeholder instead. */
   active: boolean;
   onGeometry?: (geometry: PageGeometry) => void;
+  /**
+   * Which layer receives pointers.
+   *
+   *   "text" — the text layer is live, so text can be selected and
+   *            highlighted. Used by the select and highlight tools.
+   *   "draw" — the text layer is inert, so pen, eraser, shapes and pins reach
+   *            the annotation surface above it.
+   *
+   * This is not cosmetic. The text layer covers the whole page, so while it
+   * is live nothing beneath it can be drawn on or tapped — which is exactly
+   * why the pen appeared to select correctly and then do nothing.
+   */
+  interaction?: "text" | "draw";
   children?: (geometry: PageGeometry) => React.ReactNode;
   label?: string;
   /** Marked on the page element so a DOM Range can be traced back to a leaf. */
@@ -43,6 +56,7 @@ export function PdfPage({
   children,
   label,
   leafId,
+  interaction = "text",
 }: PdfPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
@@ -194,7 +208,14 @@ export function PdfPage({
 
         <div
           ref={textLayerRef}
-          className="textLayer absolute inset-0 select-text"
+          className={cn(
+            "textLayer absolute inset-0",
+            interaction === "text"
+              ? "select-text"
+              : // Inert while drawing: otherwise a stroke becomes a text
+                // selection and the ink surface never sees the pointer.
+                "pointer-events-none select-none",
+          )}
           aria-hidden={!active}
         />
 
