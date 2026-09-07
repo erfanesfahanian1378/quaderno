@@ -70,7 +70,9 @@ export function NotePageView({
         )}
       </article>
 
-      <span className="text-caption text-ink-3">{label}</span>
+      <span data-print-hide="" className="text-caption text-ink-3">
+        {label}
+      </span>
     </div>
   );
 }

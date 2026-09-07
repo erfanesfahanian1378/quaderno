@@ -30,6 +30,8 @@ export function ViewerHeader({
   onZoomIn,
   onZoomOut,
   onFitWidth,
+  onPrint,
+  printState,
   railOpen,
   onToggleRail,
   panelOpen,
@@ -44,6 +46,8 @@ export function ViewerHeader({
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitWidth: () => void;
+  onPrint: () => void;
+  printState: { rendering: boolean; tooLong: boolean; limit: number };
   railOpen: boolean;
   onToggleRail: () => void;
   panelOpen: boolean;
@@ -82,7 +86,12 @@ export function ViewerHeader({
 
       <div className="hidden shrink-0 items-center gap-2 sm:flex">
         <SyncIndicator state={syncState} />
-        <ExportMenu documentId={doc.id} title={doc.title} />
+        <ExportMenu
+          documentId={doc.id}
+          title={doc.title}
+          onPrint={onPrint}
+          printState={printState}
+        />
 
         <button
           type="button"
@@ -212,7 +221,12 @@ export function ViewerHeader({
             </div>
 
             <div className="px-1">
-              <ExportMenu documentId={doc.id} title={doc.title} />
+              <ExportMenu
+                documentId={doc.id}
+                title={doc.title}
+                onPrint={onPrint}
+                printState={printState}
+              />
             </div>
 
             {doc.conversionEngine === "libreoffice" ? (

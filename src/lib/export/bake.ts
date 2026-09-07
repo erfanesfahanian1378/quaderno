@@ -235,6 +235,9 @@ function drawAnnotation(page: PDFPage, annotation: ExportAnnotation): void {
  * `sourcePdf` may be null for a NATIVE document, whose leaves are all note
  * pages — there is deliberately no second code path for those.
  */
+/** Loaded lazily: only a layered export pays for the dictionary builder. */
+const layered = () => import("./layered");
+
 export async function bakeExport(options: {
   sourcePdf: Uint8Array | null;
   leaves: ExportLeaf[];
@@ -261,11 +264,14 @@ export async function bakeExport(options: {
       if (!copied) continue;
       const page = output.addPage(copied);
 
-      // "Layered" would attach real PDF annotation objects here so they stay
-      // editable in Acrobat. pdf-lib cannot construct those without dropping
-      // to raw object graphs, so both flavours currently flatten — and the UI
-      // says so rather than promising something it does not do.
       for (const annotation of leaf.annotations) {
+        if (options.flavour === "layered") {
+          // Real, editable annotation objects. Falls through to painting for
+          // the kinds with no good PDF equivalent, so a layered export is
+          // never missing a mark.
+          const { addLayeredAnnotation } = await layered();
+          if (addLayeredAnnotation(output, page, annotation)) continue;
+        }
         drawAnnotation(page, annotation);
       }
       continue;
@@ -279,6 +285,10 @@ export async function bakeExport(options: {
       const page = output.getPage(before);
       if (page) {
         for (const annotation of leaf.annotations) {
+          if (options.flavour === "layered") {
+            const { addLayeredAnnotation } = await layered();
+            if (addLayeredAnnotation(output, page, annotation)) continue;
+          }
           drawAnnotation(page, annotation);
         }
       }

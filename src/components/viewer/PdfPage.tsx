@@ -223,7 +223,9 @@ export function PdfPage({
         {geometry && children ? children(geometry) : null}
       </div>
 
-      <span className="text-caption text-ink-3">{label ?? pageNumber}</span>
+      <span data-print-hide="" className="text-caption text-ink-3">
+        {label ?? pageNumber}
+      </span>
     </div>
   );
 }

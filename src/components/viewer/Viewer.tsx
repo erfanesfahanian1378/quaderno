@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePdfDocument, usePageCache } from "./usePdfDocument";
 import { useRenderWindow } from "./useRenderWindow";
+import { usePrint } from "./usePrint";
 import { PdfPage } from "./PdfPage";
 import { ThumbnailRail } from "./ThumbnailRail";
 import { ViewerHeader } from "./ViewerHeader";
@@ -94,13 +95,14 @@ export function Viewer({
       }
 
       /*
-       * `__doc` marks this request for the service worker, which serves the
-       * cached body — including byte ranges — when the document is kept
-       * offline. pdf.js never knows the difference.
+       * Handed to pdf.js exactly as signed.
+       *
+       * There was a marker query parameter here so the service worker could
+       * recognise the request. It cannot go in the URL: SigV4 signs the whole
+       * query string, so the extra parameter turned every page fetch into a
+       * 403. The worker matches on the object's pathname instead (public/sw.js).
        */
-      const withMarker = new URL(result.data.url);
-      withMarker.searchParams.set("__doc", doc.id);
-      setSourceUrl(withMarker.toString());
+      setSourceUrl(result.data.url);
       setLoadError(null);
 
       const expiresIn =
@@ -119,6 +121,7 @@ export function Viewer({
   const getPage = usePageCache(pdf.status === "ready" ? pdf.document : null);
 
   const { visible, isInWindow } = useRenderWindow(scrollRef, leaves.length);
+  const printing = usePrint(scrollRef, leaves.length);
 
   // --- Annotations --------------------------------------------------------
 
@@ -419,6 +422,7 @@ export function Viewer({
 
   return (
     <div
+      data-viewer=""
       data-accent={doc.languageAccent}
       className="flex h-dvh flex-col bg-canvas"
     >
@@ -437,6 +441,8 @@ export function Viewer({
           setZoom((z) => [...ZOOM_STEPS].reverse().find((s) => s < z) ?? z);
         }}
         onFitWidth={() => setFitWidth(true)}
+        onPrint={() => void printing.print()}
+        printState={printing}
         railOpen={railOpen}
         onToggleRail={() => setRailOpen((open) => !open)}
         panelOpen={railOpenRight}
@@ -448,7 +454,7 @@ export function Viewer({
         }
       />
 
-      <div className="flex min-h-0 flex-1">
+      <div data-print-keep="" className="flex min-h-0 flex-1">
         {railOpen ? (
           <ThumbnailRail
             leaves={leaves}
@@ -462,6 +468,7 @@ export function Viewer({
 
         <div
           ref={scrollRef}
+          data-print-keep=""
           className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6"
         >
           {loadError ? (
@@ -476,7 +483,7 @@ export function Viewer({
             </div>
           ) : null}
 
-          <div className="flex flex-col items-center gap-6">
+          <div data-print-keep="" className="flex flex-col items-center gap-6">
             {leaves.map((leaf, index) => {
               const pageNumber = index + 1;
 
@@ -498,7 +505,7 @@ export function Viewer({
                       getPage={getPage}
                       scale={zoom}
                       rotation={leaf.rotation}
-                      active={isInWindow(pageNumber)}
+                      active={isInWindow(pageNumber) || printing.printAll}
                       label={leaf.label ?? String(pageNumber)}
                       leafId={leaf.id}
                       interaction={

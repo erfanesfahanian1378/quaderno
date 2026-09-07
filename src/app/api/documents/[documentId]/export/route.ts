@@ -6,6 +6,8 @@ import * as documents from "@/server/repositories/document";
 import * as annotations from "@/server/repositories/annotation";
 import { getSignedReadUrl } from "@/server/storage";
 import { searchParams } from "@/server/api/request";
+import * as exportsRepo from "@/server/repositories/export";
+import { enqueueExport } from "@/server/jobs/enqueue";
 
 type Params = { documentId: string };
 
@@ -28,11 +30,15 @@ export const GET = wrap<Params>(async (request, { params }) => {
   const flavour = searchParams(request).get("flavour") ?? "flattened";
 
   if (full.leaves.length > CLIENT_EXPORT_LIMIT) {
-    // PHASE-09 queues a server-side job here, reusing the same layout code.
+    // Too long for the browser. Queue it, reusing the same layout code.
+    const record = await exportsRepo.create(ctx, full.id, flavour);
+    await enqueueExport({ exportId: record.id, userId: ctx.userId });
+
     return NextResponse.json({
       mode: "server" as const,
+      exportId: record.id,
       message:
-        "This document is long enough that we will build the export on the server and tell you when it is ready.",
+        "This document is long enough that we are building the export on the server. It will be ready shortly.",
       leafCount: full.leaves.length,
     });
   }

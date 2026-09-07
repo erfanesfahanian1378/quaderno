@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./tokens.css";
+@import "./print.css";
 
 /*
  * Tailwind theme. Two blocks, and the difference matters:

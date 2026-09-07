@@ -62,6 +62,7 @@ self.addEventListener("message", (event) => {
   if (data.type === "drop-document") {
     event.waitUntil(
       Promise.all([
+        forgetDocument(data.documentId),
         caches.open(DOCS).then((cache) => cache.delete(docKey(data.documentId))),
         caches
           .open(SHELL)
@@ -79,6 +80,57 @@ function docKey(documentId) {
   // A stable, same-origin key. NOT the signed URL: that changes every five
   // minutes and would never produce a hit.
   return new Request(`/__cached-document__/${documentId}`);
+}
+
+/*
+ * Which object paths belong to which document.
+ *
+ * This used to be a `__doc=<id>` query parameter on the PDF URL. That was
+ * wrong in a way that only shows up against a real S3: the URL is presigned
+ * with SigV4, which signs the WHOLE canonical query string, so appending
+ * anything to it makes every request 403 SignatureDoesNotMatch. The marker
+ * has to live somewhere the signature does not cover, and the signed URL has
+ * no such place — so it lives here instead, keyed by the object's pathname,
+ * which is the one part of a presigned URL that does not change between
+ * signings.
+ */
+const INDEX_KEY = "/__document-index__";
+let docIndex = null;
+
+async function loadIndex() {
+  if (docIndex) return docIndex;
+  docIndex = new Map();
+  try {
+    const cache = await caches.open(DOCS);
+    const stored = await cache.match(INDEX_KEY);
+    if (stored) docIndex = new Map(Object.entries(await stored.json()));
+  } catch {
+    // A corrupt index is not worth failing a fetch over; an empty one just
+    // means everything goes to the network.
+  }
+  return docIndex;
+}
+
+async function saveIndex(index) {
+  const cache = await caches.open(DOCS);
+  await cache.put(
+    INDEX_KEY,
+    new Response(JSON.stringify(Object.fromEntries(index)), {
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
+}
+
+async function rememberPath(url, documentId) {
+  const index = await loadIndex();
+  index.set(new URL(url).pathname, documentId);
+  await saveIndex(index);
+}
+
+async function forgetDocument(documentId) {
+  const index = await loadIndex();
+  for (const [path, id] of index) if (id === documentId) index.delete(path);
+  await saveIndex(index);
 }
 
 async function cacheDocument(documentId, url) {
@@ -102,6 +154,8 @@ async function cacheDocument(documentId, url) {
 
     const response = await fetch(url);
     if (!response.ok) return;
+
+    await rememberPath(url, documentId);
 
     const body = await response.arrayBuffer();
     const cache = await caches.open(DOCS);
@@ -131,7 +185,12 @@ async function cacheDocument(documentId, url) {
 
 /** Least-recently-cached eviction. `caches` has no size API, so we measure. */
 async function evictIfOver(cache) {
-  const requests = await cache.keys();
+  // The index is bookkeeping, not payload. It carries no X-Cached-At, so it
+  // would sort oldest-first and be the very first thing evicted — which would
+  // leave every cached body in place but unreachable.
+  const requests = (await cache.keys()).filter(
+    (request) => !new URL(request.url).pathname.startsWith(INDEX_KEY),
+  );
 
   const entries = await Promise.all(
     requests.map(async (request) => {
@@ -160,11 +219,17 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // A document's bytes. Serve from cache when we have them, including
-  // satisfying byte ranges ourselves.
-  const cachedDoc = url.searchParams.get("__doc");
-  if (cachedDoc) {
-    event.respondWith(serveDocument(cachedDoc, request));
+  /*
+   * A document's bytes, served from cache when we have them — byte ranges
+   * included. Object storage is a different origin and the keys end in .pdf,
+   * which is enough of a filter to keep every other cross-origin request out
+   * of the async index lookup.
+   *
+   * Note what is NOT happening: the request is passed through untouched. A
+   * presigned URL cannot survive being decorated (see the index above).
+   */
+  if (url.origin !== self.location.origin && url.pathname.endsWith(".pdf")) {
+    event.respondWith(maybeServeDocument(url.pathname, request));
     return;
   }
 
@@ -232,6 +297,13 @@ async function cacheFirst(cacheName, request) {
  * This is the part that makes offline reading work at all: pdf.js will ask
  * for `bytes=0-65535`, then some other window, and expects a 206 each time.
  */
+async function maybeServeDocument(pathname, request) {
+  const index = await loadIndex();
+  const documentId = index.get(pathname);
+  if (!documentId) return fetch(request);
+  return serveDocument(documentId, request);
+}
+
 async function serveDocument(documentId, request) {
   const cache = await caches.open(DOCS);
   const cached = await cache.match(docKey(documentId));

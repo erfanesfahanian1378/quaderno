@@ -1,0 +1,142 @@
+/*
+ * ⌘P on a document.
+ *
+ * The hard part is not the layout — it is that the viewer is virtualised, so
+ * at any moment only three to five pages exist in the DOM (useRenderWindow).
+ * Printing straight from the browser would emit a stack of blank placeholders,
+ * which is worse than refusing. `usePrint` renders every page first and only
+ * then calls window.print(); this file assumes that has happened.
+ *
+ * Everything here is inside `@media print` so it costs the screen nothing.
+ */
+
+@media print {
+  /* ---- Chrome ----------------------------------------------------------
+   * Hide by default, keep by exception. A new toolbar or popover added to
+   * the viewer later is hidden automatically rather than needing a rule
+   * here — which is the only way this file stays correct over time.
+   */
+  [data-viewer] > *:not([data-print-keep]),
+  [data-print-keep] > *:not([data-print-keep]):not([data-page-index]),
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* The invisible pdf.js text layer would print nothing but would still let
+   * a PDF printer emit an overlapping copy of every word. */
+  .textLayer {
+    display: none !important;
+  }
+
+  /* ---- Colour ----------------------------------------------------------
+   * Two things fight us. Browsers strip background colours by default, which
+   * would drop every highlight; and a reader in dark mode has the DARK
+   * highlight values loaded, which are chosen for a dark surface and print as
+   * mud. Force both back to paper.
+   *
+   * These are the light values from tokens.css. The worker keeps the same
+   * table for the same reason (worker/jobs/document-export.ts) — neither a
+   * print sheet nor a Node process has a theme to read.
+   */
+  :root {
+    --hl-yellow: #ffe27a;
+    --hl-green: #a9e5a0;
+    --hl-blue: #9fd0f5;
+    --hl-pink: #f7a8c4;
+    --hl-orange: #ffc48a;
+    --ink-black: #1c1b18;
+    --ink-rust: #b14a32;
+    --ink-blue: #2c6bb1;
+    --ink-green: #3f7d58;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    height: auto !important;
+  }
+
+  /* ---- Layout ----------------------------------------------------------
+   * The viewer is a fixed-height flex column with an inner scroller. On paper
+   * there is no viewport, so every one of those constraints has to go or the
+   * print stops after one sheet.
+   */
+  /*
+   * Every ancestor of the viewer, however many layout wrappers there are.
+   * (viewer)/layout.tsx is `h-dvh overflow-hidden`; on paper that clip means
+   * the print stops after the first sheet and silently drops the rest of the
+   * document. Releasing the chain with :has() means a new layout wrapper
+   * added later cannot reintroduce the same bug.
+   */
+  :has([data-viewer]) {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  [data-viewer] {
+    display: block !important;
+    height: auto !important;
+    background: #fff !important;
+  }
+
+  [data-print-keep] {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    flex: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  @page {
+    margin: 10mm;
+  }
+
+  /* One leaf per sheet. `break-inside: avoid` keeps a page from splitting
+   * across two sheets when it is slightly taller than the printable area;
+   * without it a 1mm overflow costs a whole extra sheet of mostly white. */
+  [data-page-index] {
+    display: block !important;
+    break-inside: avoid;
+    break-after: page;
+    page-break-inside: avoid;
+    page-break-after: always;
+    margin: 0 !important;
+  }
+
+  [data-page-index]:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* The sheet carries an inline pixel size from the current zoom. On paper
+   * that is meaningless — fit the printable width and let height follow the
+   * canvas, which keeps the aspect ratio exact.
+   *
+   * The annotation layer needs no rule at all: its SVG is `viewBox="0 0 1 1"`
+   * over `inset-0`, so normalised coordinates rescale for free. That is the
+   * whole reason marks are stored 0..1 rather than in pixels.
+   */
+  [data-page] {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    break-inside: avoid;
+  }
+
+  [data-page] canvas {
+    width: 100% !important;
+    height: auto !important;
+  }
+}

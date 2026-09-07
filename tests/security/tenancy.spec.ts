@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyIntegrationEnv, databaseReachable } from "../setup/integration";
 
@@ -20,20 +22,27 @@ import { applyIntegrationEnv, databaseReachable } from "../setup/integration";
  * control. This test is what proves the control is still there.
  */
 
-const REPOSITORY_MODULES = [
-  "annotation",
-  "class-session",
-  "comment",
-  "course",
-  "document",
-  "language",
-  "leaf",
-  "note-page",
-  "search",
-  "source-file",
-  "study",
-  "user",
-] as const;
+/*
+ * Discovered from disk, not typed out.
+ *
+ * This list used to be hardcoded, and it silently stopped covering
+ * `scheduled-class` and `export` the moment those files were added — which is
+ * the precise failure a hand-maintained list of security-relevant modules
+ * always has. Reading the directory means a new repository is scanned by
+ * existing, not by someone remembering.
+ */
+const REPOSITORY_DIR = fileURLToPath(
+  new URL("../../src/server/repositories", import.meta.url),
+);
+
+/** Not repositories: the Prisma instance and the shared `Ctx` type. */
+const NOT_A_REPOSITORY = new Set(["base", "client"]);
+
+const REPOSITORY_MODULES = readdirSync(REPOSITORY_DIR)
+  .filter((file) => file.endsWith(".ts"))
+  .map((file) => file.replace(/\.ts$/, ""))
+  .filter((name) => !NOT_A_REPOSITORY.has(name))
+  .sort();
 
 /**
  * Functions that legitimately take no `ctx`, each with the reason it is safe.
@@ -64,6 +73,23 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
   "leaf.setLeafCount": "worker: ingest",
   "leaf.firstLeafId": "worker: ingest",
   "study.closeStaleTimers": "worker: the reaper sweeps every user by design",
+  "source-file.applyOcr": "worker: ocr",
+
+  // Exports. The request-side functions take ctx; these are the job's half,
+  // running after the enqueue already proved the user owns the document.
+  "export.forJob": "worker: export",
+  "export.setStatus": "worker: export",
+  "export.complete": "worker: export",
+  "export.fail": "worker: export",
+  "export.gatherDocument": "takes an explicit userId argument",
+
+  // Infrastructure rather than tenant data. None of these read anything a
+  // user owns, which is why they have no tenant to scope to.
+  "health.checkHealth": "infrastructure: no user data",
+  "rate-limit.consume": "infrastructure: keyed by IP or email, pre-session",
+  "rate-limit.reset": "infrastructure: keyed by IP or email, pre-session",
+  "rate-limit.sweep": "infrastructure: sweeps every key by design",
+  "audit.record": "infrastructure: writes the userId it is told to record",
 };
 
 let available = false;

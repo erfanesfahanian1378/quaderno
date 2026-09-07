@@ -66,6 +66,18 @@ export async function enqueueIngest(payload: {
   });
 }
 
+export async function enqueueExport(payload: {
+  exportId: string;
+  userId: string;
+}): Promise<string | null> {
+  const instance = await getBoss();
+  await instance.createQueue(QUEUE_NAMES.documentExport).catch(() => {});
+  return instance.send(QUEUE_NAMES.documentExport, payload, {
+    retryLimit: 2,
+    expireInMinutes: 30,
+  });
+}
+
 export async function enqueueOcr(payload: {
   sourceFileId: string;
   documentId: string;
