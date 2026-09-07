@@ -52,11 +52,44 @@ describe("page layer stacking", () => {
     expect(source).toMatch(/pointer-events-none select-none/);
   });
 
-  it("only treats select and highlight as text tools", () => {
+  it("keeps the text layer live for plain select only", () => {
     const source = read("src/components/viewer/Viewer.tsx");
-    expect(source).toMatch(
-      /tool === "select" \|\| tool === "highlight"\s*\?\s*"text"\s*:\s*"draw"/,
+
+    /*
+     * Highlight used to be a text tool too, because it waited for the
+     * browser's native selection. It now drags on its own surface, so it must
+     * be in "draw" mode like the rest — leaving the text layer live for it
+     * would put the native selection UI back on top of the gesture.
+     */
+    expect(source).toMatch(/tool === "select" \? "text" : "draw"/);
+  });
+
+  it("gives every non-pen tool a creation surface", () => {
+    const source = read("src/components/viewer/Viewer.tsx");
+
+    // The bug this guards: the buttons and the rendering existed for text
+    // boxes, shapes and pins, but nothing created them, so the tools were
+    // silently inert.
+    for (const tool of ["highlight", "shape", "text", "comment"]) {
+      expect(source).toContain(`tool === "${tool}"`);
+    }
+    expect(source).toContain("<CreationSurface");
+  });
+
+  it("does not capture the pointer for tap-placed tools", () => {
+    const source = read(
+      "src/components/viewer/annotations/CreationSurface.tsx",
     );
+
+    // Capturing binds the pointer to the surface for the rest of the gesture,
+    // so the pointerup lands there rather than on the text box that just
+    // mounted — which blurs it, commits it empty and unmounts it.
+    const beforeCapture = source.slice(
+      source.indexOf("const onPointerDown"),
+      source.indexOf("setPointerCapture"),
+    );
+    expect(beforeCapture).toContain('if (tool === "text")');
+    expect(beforeCapture).toContain('if (tool === "comment")');
   });
 });
 
