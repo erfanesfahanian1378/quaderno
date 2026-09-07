@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUserPage } from "@/server/auth/guards";
 import * as languages from "@/server/repositories/language";
-import * as classSessions from "@/server/repositories/class-session";
+import { upcoming } from "@/server/services/study/schedule";
 import * as documents from "@/server/repositories/document";
 import * as study from "@/server/services/study";
 import * as users from "@/server/repositories/user";
@@ -26,16 +26,22 @@ export default async function DashboardPage() {
   // A brand-new account goes to onboarding rather than an empty dashboard.
   if (list.length === 0) redirect("/onboarding");
 
-  const [week, recent, upcoming] = await Promise.all([
+  const [week, recent, schedule] = await Promise.all([
     study.weekSummary(ctx),
     documents.recentlyOpened(ctx, 6),
-    classSessions.upcoming(ctx, 1),
+    // The real feed: expanded rules merged with confirmed sessions, so a
+    // class already answered never shows as "next".
+    upcoming(ctx, 7),
   ]);
 
   const weekByLanguage = new Map(
     week.map((entry) => [entry.languageId, entry]),
   );
-  const nextClass = upcoming[0];
+  const pending = schedule.filter((entry) => entry.needsConfirmation);
+  const nextClass = schedule.find(
+    (entry) =>
+      !entry.needsConfirmation && new Date(entry.startsAt) >= new Date(),
+  );
 
   const greeting = new Intl.DateTimeFormat("en-GB", {
     weekday: "long",
@@ -103,7 +109,30 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      {nextClass ? (
+      {/* An unanswered class is the only thing here that needs an action. */}
+      {pending.length > 0 ? (
+        <section aria-labelledby="attend" className="flex flex-col gap-3">
+          <h2 id="attend" className="text-h3 text-ink">
+            Did you go?
+          </h2>
+          <Card className="flex flex-wrap items-center justify-between gap-4 p-4">
+            <div>
+              <p className="text-h3 text-ink">{pending[0]!.title}</p>
+              <p className="mt-0.5 text-body-sm text-ink-2">
+                {new Intl.DateTimeFormat("en-GB", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "short",
+                  timeZone: "UTC",
+                }).format(new Date(`${pending[0]!.date}T12:00:00Z`))}
+              </p>
+            </div>
+            <Link href="/schedule">
+              <Button variant="secondary">Answer</Button>
+            </Link>
+          </Card>
+        </section>
+      ) : nextClass ? (
         <section aria-labelledby="next-class" className="flex flex-col gap-3">
           <h2 id="next-class" className="text-h3 text-ink">
             Next class
@@ -116,10 +145,13 @@ export default async function DashboardPage() {
                   weekday: "long",
                   day: "numeric",
                   month: "short",
-                }).format(nextClass.date)}
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(new Date(nextClass.startsAt))}
+                {nextClass.location ? ` · ${nextClass.location}` : ""}
               </p>
             </div>
-            <Link href={`/library?classSessionId=${nextClass.id}`}>
+            <Link href="/library">
               <Button variant="secondary">
                 <UploadIcon className="size-4" />
                 Add materials

@@ -125,6 +125,53 @@ export function startOfWeekKey(dayKey: string, weekStartsOn: number): string {
   return dateToDayKey(addDays(date, -diff));
 }
 
+/**
+ * A wall-clock time in an IANA zone → the instant it actually happens.
+ *
+ * This is the step that makes recurring classes DST-safe. A class at 18:30
+ * Europe/Rome is 17:30 UTC in winter and 16:30 UTC in summer; anchoring the
+ * wall time in the zone gets both right, where adding a fixed offset gets one
+ * of them wrong for half the year and nobody notices until a class is missed.
+ *
+ * Solved by iteration rather than by arithmetic on the offset: guess, read
+ * back what the guess actually renders as in that zone, and correct. Two
+ * passes settle every case including the transition days themselves.
+ */
+export function wallTimeInZone(
+  dayKey: string,
+  hours: number,
+  minutes: number,
+  timeZone: string,
+): Date {
+  let guess = new Date(`${dayKey}T${pad(hours)}:${pad(minutes)}:00.000Z`);
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    const rendered = partsInZone(guess, timeZone);
+
+    const wantedMinutes = hours * 60 + minutes;
+    const gotMinutes = rendered.hour * 60 + rendered.minute;
+
+    // Also correct for the date rolling, which happens near midnight.
+    const dayDelta =
+      Date.UTC(
+        Number(dayKey.slice(0, 4)),
+        Number(dayKey.slice(5, 7)) - 1,
+        Number(dayKey.slice(8, 10)),
+      ) - Date.UTC(rendered.year, rendered.month - 1, rendered.day);
+
+    const driftMs = (wantedMinutes - gotMinutes) * 60_000 + dayDelta;
+    if (driftMs === 0) break;
+
+    guess = new Date(guess.getTime() + driftMs);
+  }
+
+  return guess;
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
 export function formatDuration(totalSeconds: number): string {
   const minutes = Math.round(totalSeconds / 60);
   const hours = Math.floor(minutes / 60);

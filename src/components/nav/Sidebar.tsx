@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import type { AccentKey } from "@/lib/tokens";
 import {
   BookIcon,
+  CalendarIcon,
   ChartIcon,
   ClockIcon,
   HomeIcon,
@@ -50,6 +51,10 @@ export function Sidebar({ languages }: { languages: SidebarLanguage[] }) {
         <NavLink href="/study" active={pathname.startsWith("/study")}>
           <ClockIcon />
           Study
+        </NavLink>
+        <NavLink href="/schedule" active={pathname.startsWith("/schedule")}>
+          <CalendarIcon />
+          Schedule
         </NavLink>
         <NavLink href="/stats" active={pathname.startsWith("/stats")}>
           <ChartIcon />
