@@ -100,8 +100,17 @@ pnpm dev                      # http://localhost:3000
 pnpm worker:dev
 ```
 
-Requires Node 22+, pnpm 9+, Docker. For `.docx` conversion outside Docker you
-also need LibreOffice on your `PATH` (`brew install --cask libreoffice`).
+Requires Node 22+, pnpm 9+, Docker. Outside Docker the worker also needs:
+
+```bash
+brew install --cask libreoffice     # .docx / .pptx conversion
+brew install qpdf ocrmypdf          # PDF repair, and OCR for scans
+brew install tesseract-lang         # OCR language packs — Homebrew's
+                                    # tesseract ships English only
+```
+
+Without `tesseract-lang`, OCR falls back to English and says so in the
+conversion log rather than failing silently.
 
 > **Already running Postgres locally?** Set `DB_PORT` in `.env` to something
 > free (say `5433`) and change the port in `DATABASE_URL` and

@@ -25,6 +25,7 @@ import {
 } from "./annotations/InlineComposer";
 import { PronouncePanel } from "./PronouncePanel";
 import { RightRail } from "./RightRail";
+import { OcrOffer } from "./OcrOffer";
 import { useInkCapture } from "./ink/useInkCapture";
 import {
   HIGHLIGHT_DEFAULT_LABELS,
@@ -464,10 +465,7 @@ export function Viewer({
 
           {!doc.hasTextLayer && doc.status === "READY" ? (
             <div className="mx-auto mb-4 max-w-[720px]">
-              <Banner tone="info">
-                This looks like a scan, so there is no text to select yet.
-                Running OCR makes it highlightable.
-              </Banner>
+              <OcrOffer documentId={doc.id} />
             </div>
           ) : null}
 

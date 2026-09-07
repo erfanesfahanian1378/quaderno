@@ -143,6 +143,29 @@ export async function recordChecksum(
   });
 }
 
+/** Swaps in the OCR'd PDF. One transaction, and the original is untouched. */
+export async function applyOcr(
+  id: string,
+  data: { pdfStorageKey: string; hasTextLayer: boolean; log: string },
+): Promise<void> {
+  const existing = await prisma.sourceFile.findUnique({
+    where: { id },
+    select: { conversionLog: true },
+  });
+
+  await prisma.sourceFile.update({
+    where: { id },
+    data: {
+      pdfStorageKey: data.pdfStorageKey,
+      hasTextLayer: data.hasTextLayer,
+      ocrApplied: true,
+      conversionLog: existing?.conversionLog
+        ? `${existing.conversionLog}\n${data.log}`
+        : data.log,
+    },
+  });
+}
+
 export async function markOcrApplied(
   id: string,
   hasTextLayer: boolean,

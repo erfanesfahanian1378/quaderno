@@ -70,6 +70,7 @@ export async function enqueueOcr(payload: {
   sourceFileId: string;
   documentId: string;
   userId: string;
+  languageCode: string;
 }): Promise<string | null> {
   const instance = await getBoss();
   await instance.createQueue(QUEUE_NAMES.documentOcr).catch(() => {});

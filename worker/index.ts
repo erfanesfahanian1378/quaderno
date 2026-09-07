@@ -12,6 +12,7 @@
 import { getBoss, stopBoss } from "./queue";
 import { registerNoop } from "./jobs/noop";
 import { registerIngest } from "./jobs/document-ingest";
+import { registerOcr } from "./jobs/document-ocr";
 import { registerTimerReaper } from "./jobs/timer-reaper";
 
 async function main(): Promise<void> {
@@ -20,8 +21,11 @@ async function main(): Promise<void> {
 
   await registerNoop(boss);
   await registerIngest(boss);
+  await registerOcr(boss);
   await registerTimerReaper(boss);
-  console.log("[worker] registered: noop, document.ingest, study.timer-reaper");
+  console.log(
+    "[worker] registered: noop, document.ingest, document.ocr, study.timer-reaper",
+  );
 
   console.log("[worker] ready");
 }
