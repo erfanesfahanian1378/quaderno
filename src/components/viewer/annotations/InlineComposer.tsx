@@ -135,20 +135,20 @@ export const InlineComposer = forwardRef<
           ? {
               left: Math.min(
                 Math.max(8, position.left),
-                (typeof window === "undefined" ? 400 : window.innerWidth) - 240,
+                (typeof window === "undefined" ? 400 : window.innerWidth) - 276,
               ),
               top: position.top,
-              width: 232,
+              width: 268,
             }
           : // Parked off-screen rather than unmounted, and still focusable.
-            { left: -9999, top: -9999, width: 232, pointerEvents: "none" }
+            { left: -9999, top: -9999, width: 268, pointerEvents: "none" }
       }
       aria-hidden={!active}
     >
       <div
         className={
           active
-            ? "rounded-md border-2 border-accent bg-surface p-1.5 shadow-e2"
+            ? "rounded-md border-2 border-accent bg-surface p-2 shadow-e3"
             : "opacity-0"
         }
       >
@@ -180,14 +180,30 @@ export const InlineComposer = forwardRef<
           // Always focusable: `open()` focuses it before React has applied
           // the state that makes it visible.
           tabIndex={0}
-          className="w-full resize-none overflow-hidden bg-transparent text-body outline-none"
-          style={{ color: `var(--${color})` }}
+          /*
+           * Theme-aware UI text, NOT the pen colour.
+           *
+           * The ink colours are marks on a white page and are deliberately
+           * identical in both themes — ink-black is #1C1B18. Painting the
+           * composer's own text in it puts near-black on the dark surface,
+           * where you cannot read what you are typing. The swatch below shows
+           * which colour it will become once it lands on the page.
+           */
+          className="w-full resize-none overflow-hidden bg-transparent text-body text-ink outline-none placeholder:text-ink-3"
         />
 
         {active ? (
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="text-caption text-ink-3">
-              Enter to keep · Esc to discard
+          <div className="mt-2 flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              title="The colour it will be on the page"
+              className="size-4 shrink-0 rounded-full border border-hairline"
+              style={{ background: `var(--${color})` }}
+            />
+            <span className="min-w-0 flex-1 text-caption leading-tight text-ink-3">
+              Enter to keep
+              <br />
+              Esc to discard
             </span>
             <button
               type="button"
@@ -197,7 +213,7 @@ export const InlineComposer = forwardRef<
                 event.preventDefault();
                 commit();
               }}
-              className="rounded-sm bg-accent px-2 py-1 text-caption text-accent-on"
+              className="shrink-0 rounded-sm bg-accent px-3 py-1.5 text-label text-accent-on"
             >
               Add
             </button>
