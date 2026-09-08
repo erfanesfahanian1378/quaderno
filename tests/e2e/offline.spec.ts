@@ -111,6 +111,40 @@ test.describe("offline", () => {
     expect(redirected, JSON.stringify(redirected)).toEqual([]);
   });
 
+  test("ONLINE navigations never land on the offline page", async ({
+    context,
+    page,
+  }) => {
+    await signIn(context, TOKEN);
+
+    await page.goto("/library");
+    await waitForController(page);
+
+    /*
+     * The regression this exists for.
+     *
+     * Caching used to happen inside the same try as the fetch, so anything the
+     * cache threw — a quota, a failed body read — was caught by the handler
+     * that means "no network", and someone with a perfectly good connection
+     * was shown "This page needs the network". It was reported from a phone
+     * with full signal.
+     *
+     * Every navigation here is online. None may reach the fallback.
+     */
+    for (const path of ["/library", "/dashboard", "/review", "/schedule"]) {
+      await page.goto(path);
+      await expect(page).not.toHaveURL(/offline\.html/);
+      await expect(page.locator("h1")).not.toContainText("needs the network");
+    }
+
+    // And the pages really were cached, rather than caching being skipped to
+    // make the assertion above pass.
+    const pages = (await cacheEntries(page)).filter((entry) =>
+      entry.cache.includes("pages"),
+    );
+    expect(pages.length).toBeGreaterThan(0);
+  });
+
   test("a visited page renders offline and says how stale it is", async ({
     context,
     page,

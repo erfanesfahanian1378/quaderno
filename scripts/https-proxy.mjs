@@ -95,10 +95,25 @@ const server = createServer(
     );
 
     proxied.on("error", () => {
+      if (outgoing.headersSent) {
+        outgoing.destroy();
+        return;
+      }
       outgoing
         .writeHead(502, { "Content-Type": "text/plain" })
-        .end(`Nothing is listening on :${TARGET_PORT}. Is \`pnpm dev\` running?`);
+        .end(
+          `Nothing is listening on :${TARGET_PORT}. Is \`pnpm dev\` running?`,
+        );
     });
+
+    /*
+     * A phone that walks out of wifi range resets the connection mid-response.
+     * Node turns that into an 'error' event on the socket, and an unhandled
+     * one takes the whole process down — so the proxy would die exactly when
+     * someone was testing what happens when the network drops.
+     */
+    incoming.on("error", () => proxied.destroy());
+    outgoing.on("error", () => proxied.destroy());
 
     incoming.pipe(proxied);
   },
@@ -131,6 +146,7 @@ server.on("upgrade", (incoming, socket, head) => {
   });
 
   proxied.on("error", () => socket.destroy());
+  socket.on("error", () => proxied.destroy());
   if (head?.length) proxied.write(head);
   proxied.end();
 });
@@ -138,15 +154,28 @@ server.on("upgrade", (incoming, socket, head) => {
 function lanAddress() {
   for (const addresses of Object.values(networkInterfaces())) {
     for (const address of addresses ?? []) {
-      if (address.family === "IPv4" && !address.internal) return address.address;
+      if (address.family === "IPv4" && !address.internal)
+        return address.address;
     }
   }
   return "localhost";
 }
 
+/*
+ * Last resort. A dropped connection must never take the proxy with it — a
+ * crash here means every device on the network loses the app at once, and the
+ * cause looks like the app rather than the tunnel in front of it.
+ */
+server.on("clientError", (_error, socket) => socket.destroy());
+process.on("uncaughtException", (error) => {
+  console.error(`[https] ignored: ${error.message}`);
+});
+
 server.listen(PORT, "0.0.0.0", () => {
   const host = lanAddress();
   console.log(`\n  https://${host}:${PORT}        ← open this on the phone`);
-  console.log(`  https://${host}:${PORT}/mkcert-root.crt   ← install this first\n`);
+  console.log(
+    `  https://${host}:${PORT}/mkcert-root.crt   ← install this first\n`,
+  );
   console.log(`  forwarding to http://127.0.0.1:${TARGET_PORT}\n`);
 });

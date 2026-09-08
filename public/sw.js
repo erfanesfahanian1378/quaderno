@@ -373,35 +373,68 @@ async function cacheFirst(cacheName, request) {
  * is live data. On success it is stored so the next offline visit has it.
  */
 async function handleNavigation(request) {
+  let response;
+
+  /*
+   * ONLY the fetch is allowed to mean "offline".
+   *
+   * Caching used to happen inside this try, and anything it threw — a storage
+   * quota, a failed body read, a cache the browser declined to write — landed
+   * in the catch below and served the OFFLINE PAGE to someone with a perfectly
+   * good connection. That is exactly what happened on a phone: the network was
+   * fine, the response was fine, and the worker announced there was no
+   * connection because writing to the cache had failed.
+   *
+   * So the two are separated. A caching failure costs the next offline visit;
+   * it must never cost this one.
+   */
   try {
-    const response = await fetch(request);
-    await rememberPage(request, response);
-    return response;
+    response = await fetch(request);
   } catch {
-    const cached = await servePageFromCache(request);
-    if (cached) return cached;
-
-    /*
-     * REDIRECT to /offline rather than serving its HTML here.
-     *
-     * Next's client router compares the URL it is on with the payload it was
-     * given. Handing the /offline document back under /stats hydrates the
-     * wrong route and throws "a client-side exception has occurred" — a worse
-     * failure than the one being handled.
-     *
-     * A redirect the worker CREATES is fine; it is a cached response that
-     * already followed one that navigations refuse.
-     */
-    const url = new URL(request.url);
-    if (url.pathname === FALLBACK) {
-      return (
-        (await rebuildForNavigation(await caches.match(FALLBACK))) ??
-        Response.error()
-      );
-    }
-
-    return Response.redirect(new URL(FALLBACK, url.origin).toString(), 302);
+    return offlineResponse(request);
   }
+
+  /*
+   * Cloned synchronously, cached in the background, NOT awaited.
+   *
+   * Awaiting it buffered the entire page before the browser saw a single byte,
+   * which on a phone over wifi is a visible delay — and worse, reading a
+   * streamed clone to completion is exactly where it used to fail.
+   */
+  const copy = response.clone();
+  rememberPage(request, copy).catch(() => {
+    // Best effort, always. A page that cannot be cached is still a page that
+    // must be shown.
+  });
+
+  return response;
+}
+
+/** What to serve when the network genuinely is not there. */
+async function offlineResponse(request) {
+  const cached = await servePageFromCache(request);
+  if (cached) return cached;
+
+  /*
+   * REDIRECT to /offline rather than serving its HTML here.
+     *
+   * Next's client router compares the URL it is on with the payload it was
+   * given. Handing the /offline document back under /stats hydrates the wrong
+   * route and throws "a client-side exception has occurred" — a worse failure
+   * than the one being handled.
+   *
+   * A redirect the worker CREATES is fine; it is a cached response that
+   * already followed one that navigations refuse.
+   */
+  const url = new URL(request.url);
+  if (url.pathname === FALLBACK) {
+    return (
+      (await rebuildForNavigation(await caches.match(FALLBACK))) ??
+      Response.error()
+    );
+  }
+
+  return Response.redirect(new URL(FALLBACK, url.origin).toString(), 302);
 }
 
 /**
@@ -414,6 +447,8 @@ async function handleNavigation(request) {
  * every offline route into a dead tab.
  */
 async function rememberPage(request, response) {
+  // The response passed in is already a clone this function owns, so it reads
+  // the body directly rather than cloning again.
   if (!response.ok || response.redirected) return;
   if (response.type !== "basic") return;
 
@@ -425,7 +460,7 @@ async function rememberPage(request, response) {
   const headers = new Headers(response.headers);
   headers.set(CACHED_AT, new Date().toISOString());
 
-  const stored = new Response(await response.clone().blob(), {
+  const stored = new Response(await response.blob(), {
     status: response.status,
     statusText: response.statusText,
     headers,
