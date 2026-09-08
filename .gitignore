@@ -5,6 +5,7 @@ node_modules/
 
 # next
 /.next/
+/.next-e2e/
 /out/
 next-env.d.ts
 
@@ -47,3 +48,8 @@ prisma/*.db-journal
 
 # Generated build artefact, not source.
 bundle-report.json
+
+# Throwaway scripts used while driving the browser during development.
+# They have been committed by accident once; this makes that impossible.
+tmp-*
+/scripts/tmp-*

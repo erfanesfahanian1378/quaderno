@@ -42,6 +42,8 @@ export default tseslint.config(
     ignores: [
       "node_modules/**",
       ".next/**",
+      // The offline e2e suite builds here, so it does not clobber .next.
+      ".next-e2e/**",
       "dist/**",
       "next-env.d.ts",
       "prisma/migrations/**",

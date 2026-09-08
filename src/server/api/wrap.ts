@@ -45,9 +45,22 @@ function errorResponse(error: ApiError, requestId: string): NextResponse {
  * ```
  */
 export function wrap<TParams = unknown>(handler: Handler<TParams>) {
+  /*
+   * The context is REQUIRED, not `| undefined`.
+   *
+   * Next 15 validates every route export against its own `RouteContext`, and
+   * a second argument typed `... | undefined` is rejected outright. It builds
+   * anyway while `.next/types` holds a stale copy of the generated types,
+   * which is how this survived unnoticed until a build into a fresh directory.
+   *
+   * Next passes a context to every handler, dynamic segments or not — for a
+   * static route `params` resolves to an empty object — so requiring it costs
+   * nothing at runtime. The optional chaining below stays for direct callers
+   * in tests, which pass nothing.
+   */
   return async (
     request: Request,
-    routeArgs: { params: Promise<TParams> } | undefined,
+    routeArgs: { params: Promise<TParams> },
   ): Promise<Response> => {
     const requestId =
       request.headers.get("x-request-id") ?? crypto.randomUUID();

@@ -36,7 +36,13 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 
   webServer: {
-    command: `pnpm build && npx next start -p ${PORT}`,
+    /*
+     * Its OWN build directory. Sharing `.next` with a running dev server
+     * replaces that server's chunks mid-flight, and it then fails every
+     * request with `Cannot find module './8039.js'` — which reads as a broken
+     * install rather than as two processes fighting over one directory.
+     */
+    command: `NEXT_DIST_DIR=.next-e2e pnpm build && NEXT_DIST_DIR=.next-e2e npx next start -p ${PORT}`,
     url: `${BASE_URL}/offline.html`,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
