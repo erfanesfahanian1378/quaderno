@@ -114,6 +114,49 @@ brew install tesseract-lang         # OCR language packs — Homebrew's
 Without `tesseract-lang`, OCR falls back to English and says so in the
 conversion log rather than failing silently.
 
+### Testing on a phone
+
+The LAN address is **not a secure context**, and browsers hide
+`serviceWorker`, `caches`, `PushManager` and `getUserMedia` outside one — not
+block them, hide them. Measured:
+
+```
+localhost:3000       secure: true    serviceWorker: yes
+192.168.1.235:3000   secure: false   serviceWorker: NO
+```
+
+So offline mode, reminders and voice recording cannot work on a phone over
+`http://192.168.x.x`, however correct the code is. Add to Home Screen there
+gives a shortcut with nothing behind it.
+
+Serve it over HTTPS instead:
+
+```bash
+brew install mkcert
+mkcert -install                      # trusts the root on THIS Mac
+mkcert -cert-file certs/local.pem -key-file certs/local-key.pem \
+       192.168.1.235 localhost 127.0.0.1
+
+pnpm dev        # terminal 1
+pnpm https      # terminal 2 — TLS on :3443, forwards to :3000
+```
+
+Then on the phone, **once**:
+
+1. Open `https://<lan-ip>:3443/mkcert-root.crt` and let it download.
+2. Android: Settings → Security → Encryption & credentials → Install a
+   certificate → **CA certificate** → pick the downloaded file.
+   iOS: Settings → General → VPN & Device Management → install the profile,
+   then Settings → General → About → Certificate Trust Settings → enable it.
+3. Open `https://<lan-ip>:3443`.
+
+A service worker needs a genuinely **trusted** certificate — tapping through a
+browser's "proceed anyway" warning is not enough, the worker script alone will
+still be refused. That is why the root has to be installed rather than
+bypassed.
+
+`certs/` is gitignored: the private key must never be committed.
+
 > **Already running Postgres locally?** Set `DB_PORT` in `.env` to something
 > free (say `5433`) and change the port in `DATABASE_URL` and
 > `QUEUE_DATABASE_URL` to match. On macOS a native listener on 5432 wins for

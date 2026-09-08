@@ -53,3 +53,6 @@ bundle-report.json
 # They have been committed by accident once; this makes that impossible.
 tmp-*
 /scripts/tmp-*
+
+# Local TLS for testing on a phone. The private key must never be committed.
+/certs/
