@@ -78,6 +78,21 @@ export function applyIntegrationEnv(): void {
   for (const [key, value] of Object.entries(INTEGRATION_ENV_DEFAULTS)) {
     process.env[key] ??= value;
   }
+
+  /*
+   * Sign against the INTERNAL endpoint, whatever `.env` says the public one is.
+   *
+   * A developer testing on a phone sets `S3_PUBLIC_ENDPOINT` to an https
+   * address served by `pnpm https` with a locally-issued certificate. Node does
+   * not trust that certificate, so a test fetching a signed url gets a TLS
+   * error and the suite fails for a reason that has nothing to do with the
+   * code — it depends on whether someone happens to be running a TLS proxy.
+   *
+   * These tests verify that the adapter round-trips bytes and signs valid
+   * urls. Which host a browser should be handed is a deployment question, not
+   * one of them.
+   */
+  process.env.S3_PUBLIC_ENDPOINT = process.env.S3_ENDPOINT;
 }
 
 /** True when the S3 endpoint answers. Used to skip rather than fail. */

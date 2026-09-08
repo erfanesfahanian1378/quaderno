@@ -141,6 +141,18 @@ pnpm dev        # terminal 1
 pnpm https      # terminal 2 — TLS on :3443, forwards to :3000
 ```
 
+Object storage needs TLS too — `pnpm https` puts it on **9443** and `.env` must
+point at it:
+
+```
+S3_PUBLIC_ENDPOINT="https://<lan-ip>:9443"
+```
+
+A plain-http endpoint is blocked as **mixed content** on an https page, and the
+symptom is a viewer full of blank grey pages with the network working
+perfectly. Presigned urls survive the proxy because SigV4 covers the Host
+header and it is forwarded unchanged.
+
 Then on the phone, **once**:
 
 1. Open `https://<lan-ip>:3443/mkcert-root.crt` and let it download.

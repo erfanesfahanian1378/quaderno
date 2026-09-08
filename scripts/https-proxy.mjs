@@ -28,6 +28,28 @@ import { join } from "node:path";
 
 const PORT = Number(process.env.HTTPS_PORT ?? 3443);
 const TARGET_PORT = Number(process.env.PORT ?? 3000);
+
+/*
+ * Object storage needs TLS as well, and this is not optional once the app has
+ * it.
+ *
+ * A page on https cannot load a PDF from http — the browser blocks it as mixed
+ * content, and pdf.js reports nothing useful:
+ *
+ *   Mixed Content: The page at 'https://192.168.1.235:3443/d/…' was loaded
+ *   over HTTPS, but requested an insecure resource 'http://192.168.1.235:9000/…'
+ *
+ * The result is a viewer full of blank grey pages with the network working
+ * perfectly. So MinIO gets a TLS front door too, and S3_PUBLIC_ENDPOINT points
+ * at it.
+ *
+ * Presigned URLs survive this because SigV4 covers the Host header and the
+ * proxy forwards it untouched: the signature is computed for
+ * `192.168.1.235:9443`, MinIO validates against the same string, and they
+ * match. Rewriting the host instead of preserving it would break every URL.
+ */
+const S3_PORT = Number(process.env.HTTPS_S3_PORT ?? 9443);
+const S3_TARGET_PORT = Number(process.env.S3_PORT ?? 9000);
 const CERT_DIR = join(process.cwd(), "certs");
 
 const CERT = join(CERT_DIR, "local.pem");
@@ -52,15 +74,14 @@ function rootCertificate() {
   return existsSync(root) ? readFileSync(root) : null;
 }
 
-const server = createServer(
-  { cert: readFileSync(CERT), key: readFileSync(KEY) },
-  (incoming, outgoing) => {
+function proxyTo(targetPort, { serveRootCertificate = false } = {}) {
+  return (incoming, outgoing) => {
     /*
      * The root certificate, so the phone can install it without a cable or a
      * file transfer. Served as `application/x-x509-ca-cert`, which is what
      * makes Android offer to install it rather than display it as text.
      */
-    if (incoming.url === "/mkcert-root.crt") {
+    if (serveRootCertificate && incoming.url === "/mkcert-root.crt") {
       const root = rootCertificate();
       if (!root) {
         outgoing.writeHead(404).end("mkcert root not found on this machine");
@@ -77,14 +98,18 @@ const server = createServer(
     const proxied = httpRequest(
       {
         host: "127.0.0.1",
-        port: TARGET_PORT,
+        port: targetPort,
         method: incoming.method,
         path: incoming.url,
         headers: {
+          /*
+           * The Host header is passed through UNCHANGED. The dev server needs
+           * it so the urls it builds point back through the proxy — and MinIO
+           * needs it because SigV4 signs it, so rewriting it would invalidate
+           * every presigned url.
+           */
           ...incoming.headers,
-          // The dev server sees the original host, so redirects and absolute
-          // urls it builds point back through the proxy rather than at :3000.
-          host: incoming.headers.host ?? `localhost:${TARGET_PORT}`,
+          host: incoming.headers.host ?? `localhost:${targetPort}`,
           "x-forwarded-proto": "https",
         },
       },
@@ -101,9 +126,7 @@ const server = createServer(
       }
       outgoing
         .writeHead(502, { "Content-Type": "text/plain" })
-        .end(
-          `Nothing is listening on :${TARGET_PORT}. Is \`pnpm dev\` running?`,
-        );
+        .end(`Nothing is listening on :${targetPort}.`);
     });
 
     /*
@@ -116,8 +139,18 @@ const server = createServer(
     outgoing.on("error", () => proxied.destroy());
 
     incoming.pipe(proxied);
-  },
+  };
+}
+
+const credentials = { cert: readFileSync(CERT), key: readFileSync(KEY) };
+
+const server = createServer(
+  credentials,
+  proxyTo(TARGET_PORT, { serveRootCertificate: true }),
 );
+
+/** The same treatment for object storage, so PDFs are not mixed content. */
+const storage = createServer(credentials, proxyTo(S3_TARGET_PORT));
 
 /*
  * WebSocket upgrades, which Next's hot reload uses. Without this the page
@@ -167,9 +200,12 @@ function lanAddress() {
  * cause looks like the app rather than the tunnel in front of it.
  */
 server.on("clientError", (_error, socket) => socket.destroy());
+storage.on("clientError", (_error, socket) => socket.destroy());
 process.on("uncaughtException", (error) => {
   console.error(`[https] ignored: ${error.message}`);
 });
+
+storage.listen(S3_PORT, "0.0.0.0");
 
 server.listen(PORT, "0.0.0.0", () => {
   const host = lanAddress();
@@ -177,5 +213,12 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(
     `  https://${host}:${PORT}/mkcert-root.crt   ← install this first\n`,
   );
-  console.log(`  forwarding to http://127.0.0.1:${TARGET_PORT}\n`);
+  console.log(`  app      → http://127.0.0.1:${TARGET_PORT}`);
+  console.log(
+    `  storage  → http://127.0.0.1:${S3_TARGET_PORT}  (tls on ${S3_PORT})`,
+  );
+  console.log(
+    `\n  S3_PUBLIC_ENDPOINT must be https://${host}:${S3_PORT} — a plain-http\n` +
+      `  endpoint is blocked as mixed content and every page renders blank.\n`,
+  );
 });

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { ChevronIcon } from "@/components/nav/icons";
 import { ExportMenu } from "./ExportMenu";
+import { OfflineButton } from "./OfflineButton";
 import { SyncIndicator } from "./SyncIndicator";
 import type { SyncState } from "@/lib/outbox/queue";
 import type { ViewerDocument } from "./Viewer";
@@ -86,6 +87,7 @@ export function ViewerHeader({
 
       <div className="hidden shrink-0 items-center gap-2 sm:flex">
         <SyncIndicator state={syncState} />
+        <OfflineButton documentId={doc.id} />
         <ExportMenu
           documentId={doc.id}
           title={doc.title}
@@ -153,6 +155,7 @@ export function ViewerHeader({
       {/* Mobile: sync stays visible (it is the honesty indicator), the rest
           goes behind one overflow button. */}
       <div className="flex shrink-0 items-center gap-1 sm:hidden">
+        <OfflineButton documentId={doc.id} />
         <SyncIndicator state={syncState} />
         <button
           type="button"
