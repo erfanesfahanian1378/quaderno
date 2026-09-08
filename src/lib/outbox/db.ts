@@ -13,7 +13,12 @@
  */
 
 const DB_NAME = "quaderno-outbox";
-const DB_VERSION = 1;
+/*
+ * Version 2 adds the general `writes` store (src/lib/outbox/writes.ts). Both
+ * modules open the SAME database, so both must ask for the same version —
+ * whichever opened second at a lower version would throw VersionError.
+ */
+const DB_VERSION = 2;
 const STORE = "ops";
 
 export type OutboxEntry = {
@@ -39,6 +44,14 @@ function open(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         const store = db.createObjectStore(STORE, { keyPath: "clientId" });
         store.createIndex("documentId", "documentId", { unique: false });
+      }
+
+      // Created here too: whichever module triggers the upgrade must produce
+      // the whole schema, not just its own half.
+      if (!db.objectStoreNames.contains("writes")) {
+        const writes = db.createObjectStore("writes", { keyPath: "id" });
+        writes.createIndex("stream", "stream", { unique: false });
+        writes.createIndex("queuedAt", "queuedAt", { unique: false });
       }
     };
 

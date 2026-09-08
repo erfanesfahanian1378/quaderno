@@ -7,6 +7,7 @@ import { uuid } from "@/lib/uuid";
 import { Banner, Button } from "@/components/ui";
 import { UploadIcon } from "@/components/nav/icons";
 import { cn } from "@/lib/cn";
+import { useOnline } from "@/lib/offline/useOnline";
 import {
   canCompress,
   compressPdf,
@@ -85,6 +86,7 @@ export function Dropzone({
   className?: string;
 }) {
   const router = useRouter();
+  const online = useOnline();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -269,6 +271,30 @@ export function Dropzone({
     },
     [maxBytes, uploadOne],
   );
+
+  if (!online) {
+    /*
+     * An upload needs a presigned URL, and a presigned URL needs the server.
+     * Queueing the file would mean holding a 150 MB blob in IndexedDB against
+     * a URL that has to be requested later anyway — so the honest answer is
+     * to say it needs a connection rather than accept a file that will sit
+     * there.
+     */
+    return (
+      <div
+        className={cn(
+          "rounded-md border-2 border-dashed border-hairline-strong bg-surface px-6 py-8 text-center",
+          className,
+        )}
+      >
+        <p className="text-label text-ink">Uploading needs a connection</p>
+        <p className="mt-1 text-body-sm text-ink-2">
+          Everything else keeps working — open a document you have kept offline,
+          write in it, and it will sync when you are back.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={className}>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api-client";
+import * as writes from "@/lib/outbox/writes";
 import { Banner, Button, EmptyState } from "@/components/ui";
 import { Card, type ReviewCardData } from "./Card";
 import { VoicePicker } from "@/components/speech/VoicePicker";
@@ -56,18 +57,49 @@ export function Session({
       setBusy(true);
       setError(null);
 
+      const body = {
+        grade: value,
+        ...(revealedAt ? { elapsedMs: Date.now() - revealedAt } : {}),
+      };
+
       const result = await api.post<{ intervalDays: number }>(
         `/api/review/cards/${card.id}/grade`,
-        {
-          grade: value,
-          ...(revealedAt ? { elapsedMs: Date.now() - revealedAt } : {}),
-        },
+        body,
       );
 
       setBusy(false);
 
       if (!result.ok) {
-        setError(result.error.message);
+        if (result.error.code !== "NETWORK") {
+          setError(result.error.message);
+          return;
+        }
+
+        /*
+         * No network. The grade is queued rather than refused — reviewing on a
+         * train is half the reason spaced repetition exists, and a session
+         * that stops at the first tunnel is no session.
+         *
+         * The server makes this exactly-once: the queue sends the entry's id
+         * as an Idempotency-Key, so a retry after a lost response does not
+         * schedule the card twice or write a second ReviewLog row.
+         */
+        await writes.enqueue({
+          method: "POST",
+          path: `/api/review/cards/${card.id}/grade`,
+          body,
+          // One stream per card, so two grades on one card keep their order.
+          stream: `grade:${card.id}`,
+          label: `Review: ${card.front.slice(0, 40)}`,
+        });
+
+        // Locally the card is done for today either way.
+        setLastInterval(null);
+        setDone((count) => count + 1);
+        setRevealed(false);
+        setRevealedAt(null);
+        if (value === "again") setQueue((current) => [...current, card]);
+        setIndex((current) => current + 1);
         return;
       }
 

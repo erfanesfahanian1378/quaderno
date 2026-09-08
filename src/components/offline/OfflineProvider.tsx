@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useOnline } from "@/lib/offline/useOnline";
+import { useCachedAt } from "@/lib/offline/cachedAt";
 import { offlineSupport, registerServiceWorker } from "@/lib/offline/register";
 import { cn } from "@/lib/cn";
 
@@ -15,6 +16,7 @@ import { cn } from "@/lib/cn";
  */
 export function OfflineProvider() {
   const online = useOnline();
+  const cachedAt = useCachedAt();
   const [support, setSupport] =
     useState<ReturnType<typeof offlineSupport>>("unsupported");
 
@@ -34,9 +36,26 @@ export function OfflineProvider() {
       )}
     >
       <span aria-hidden="true">⌁</span>
-      {support === "ready"
-        ? "Offline — your marks are saved here and will sync when you reconnect."
-        : "Offline — your marks are saved here. Documents you have not opened yet will not load."}
+
+      {/*
+        When the page came from cache, SAY WHEN. A schedule from this morning
+        shown as though it were live is worse than no schedule at all — the
+        reader acts on it.
+      */}
+      {cachedAt ? (
+        <span>
+          Offline — showing this page as it was at{" "}
+          {cachedAt.toLocaleTimeString(undefined, {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+          . Your changes are saved here and sync when you reconnect.
+        </span>
+      ) : support === "ready" ? (
+        "Offline — your changes are saved here and will sync when you reconnect."
+      ) : (
+        "Offline — your changes are saved here. Documents you have not opened yet will not load."
+      )}
     </div>
   );
 }

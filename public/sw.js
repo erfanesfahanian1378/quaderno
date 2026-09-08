@@ -14,23 +14,110 @@
  * slicing that body ourselves.
  */
 
-const VERSION = "v1";
+/*
+ * v2 — PHASE-16.
+ *
+ * The bump is load-bearing, not cosmetic. Every v1 install cached the SIGN-IN
+ * page under `/dashboard` and `/library` (see PRECACHE below), and the
+ * activate handler deletes any cache whose name does not end in the current
+ * version. Without the bump the fix reaches nobody who already used the app.
+ */
+const VERSION = "v2";
 const SHELL = `quaderno-shell-${VERSION}`;
 const DOCS = `quaderno-docs-${VERSION}`;
+const PAGES = `quaderno-pages-${VERSION}`;
 
 /** ARCHITECTURE.md §5: 200 MB, LRU. */
 const MAX_DOC_BYTES = 200 * 1024 * 1024;
 
-const SHELL_URLS = ["/", "/dashboard", "/library", "/manifest.webmanifest"];
+/**
+ * Cached pages are capped by COUNT, not bytes.
+ *
+ * `/library` varies by `?languageId=&folderId=`, so the key space is unbounded
+ * — without a cap, a few minutes of clicking through folders fills the origin's
+ * storage quota with HTML.
+ */
+const MAX_PAGES = 50;
+
+/** When a page was stored, so the reader can be told how stale it is. */
+const CACHED_AT = "x-quaderno-cached-at";
+
+/**
+ * Which pages are worth keeping.
+ *
+ * `/search` is absent on purpose: a search box that cannot search is worse
+ * than one that says it needs a connection. `/settings` too — every control on
+ * it writes to the server.
+ */
+const CACHEABLE_PAGES = [
+  "/dashboard",
+  "/library",
+  "/review",
+  "/schedule",
+  "/stats",
+  "/d/",
+];
+
+/**
+ * PUBLIC urls only.
+ *
+ * This list used to include `/dashboard` and `/library`. Install runs when the
+ * worker registers, which is BEFORE anyone signs in — so `cache.addAll`
+ * followed the redirect to `/sign-in` and stored the sign-in page under those
+ * keys. Offline, the fallback then handed a redirected response to a
+ * navigation, which browsers refuse outright, and every route died with
+ * ERR_FAILED.
+ *
+ * Authenticated routes are cached at runtime instead, after a real
+ * authenticated navigation, where the response is the page and not a redirect.
+ */
+const PRECACHE = ["/offline.html", "/manifest.webmanifest"];
+
+/**
+ * Where a navigation goes when there is nothing cached for it.
+ *
+ * A plain HTML file, not a route. As a Next page it loaded and then threw
+ * ChunkLoadError, because its JavaScript bundle had never been cached — the
+ * reader had never visited it while online. A fallback that needs the
+ * framework's chunk graph fails at exactly the moment it exists for.
+ *
+ * `/` is deliberately NOT precached: it redirects to /dashboard for a
+ * signed-in visitor, and a redirected response cannot be served to a
+ * navigation.
+ */
+const FALLBACK = "/offline.html";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(SHELL)
-      .then((cache) => cache.addAll(SHELL_URLS).catch(() => undefined))
-      .then(() => self.skipWaiting()),
-  );
+  event.waitUntil(precache().then(() => self.skipWaiting()));
 });
+
+/**
+ * Fetch each precache url individually and keep only what is safe to keep.
+ *
+ * Not `cache.addAll`, which cannot filter: it stores whatever comes back,
+ * redirects included. `/` redirects to `/dashboard` for a signed-in visitor,
+ * so `addAll` would put a redirected response in the cache and serving it to a
+ * navigation fails the load outright — the same fault that broke `/dashboard`
+ * in v1, one url along.
+ *
+ * One failure does not fail the install. A worker that refuses to install
+ * because the network hiccuped once is worse than one with a thin cache.
+ */
+async function precache() {
+  const cache = await caches.open(SHELL);
+
+  await Promise.all(
+    PRECACHE.map(async (url) => {
+      try {
+        const response = await fetch(url, { credentials: "same-origin" });
+        if (!response.ok || response.redirected) return;
+        await cache.put(url, response);
+      } catch {
+        // Offline at install, or the url moved. Neither is fatal.
+      }
+    }),
+  );
+}
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
@@ -65,7 +152,7 @@ self.addEventListener("message", (event) => {
         forgetDocument(data.documentId),
         caches.open(DOCS).then((cache) => cache.delete(docKey(data.documentId))),
         caches
-          .open(SHELL)
+          .open(PAGES)
           .then((cache) =>
             cache.delete(
               new URL(`/d/${data.documentId}`, self.location.origin).toString(),
@@ -147,10 +234,9 @@ async function cacheDocument(documentId, url) {
      */
     const pageUrl = new URL(`/d/${documentId}`, self.location.origin);
     const page = await fetch(pageUrl, { credentials: "include" });
-    if (page.ok) {
-      const shell = await caches.open(SHELL);
-      await shell.put(pageUrl.toString(), page.clone());
-    }
+    // Through the same path as any other page, so it gets the same redirect
+    // refusal and the same staleness stamp.
+    await rememberPage(new Request(pageUrl.toString()), page);
 
     const response = await fetch(url);
     if (!response.ok) return;
@@ -239,21 +325,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigations: network-first with the shell as the fallback, so going
-  // offline lands on a real page rather than the browser's dinosaur.
+  // Navigations: network-first, cache the result, fall back to that cache.
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(async () => {
-        // `ignoreSearch` because a viewer URL may carry params the cached
-        // copy does not, and the page is the same either way.
-        const exact = await caches.match(request, { ignoreSearch: true });
-        if (exact) return exact;
-
-        const shell =
-          (await caches.match("/dashboard")) ?? (await caches.match("/"));
-        return shell ?? Response.error();
-      }),
-    );
+    event.respondWith(handleNavigation(request));
     return;
   }
 
@@ -289,6 +363,124 @@ async function cacheFirst(cacheName, request) {
     await cache.put(request, response.clone());
   }
   return response;
+}
+
+/**
+ * A page request.
+ *
+ * Network first: a page is only worth serving from cache when there is no
+ * network, because everything on it — due counts, the schedule, the library —
+ * is live data. On success it is stored so the next offline visit has it.
+ */
+async function handleNavigation(request) {
+  try {
+    const response = await fetch(request);
+    await rememberPage(request, response);
+    return response;
+  } catch {
+    const cached = await servePageFromCache(request);
+    if (cached) return cached;
+
+    /*
+     * REDIRECT to /offline rather than serving its HTML here.
+     *
+     * Next's client router compares the URL it is on with the payload it was
+     * given. Handing the /offline document back under /stats hydrates the
+     * wrong route and throws "a client-side exception has occurred" — a worse
+     * failure than the one being handled.
+     *
+     * A redirect the worker CREATES is fine; it is a cached response that
+     * already followed one that navigations refuse.
+     */
+    const url = new URL(request.url);
+    if (url.pathname === FALLBACK) {
+      return (
+        (await rebuildForNavigation(await caches.match(FALLBACK))) ??
+        Response.error()
+      );
+    }
+
+    return Response.redirect(new URL(FALLBACK, url.origin).toString(), 302);
+  }
+}
+
+/**
+ * Store a page for the next time there is no network.
+ *
+ * Redirects are refused, and that refusal is the whole fix. A response that
+ * followed a redirect keeps `redirected: true` through the cache, and handing
+ * one to a navigation makes the browser fail the whole load with an opaque
+ * ERR_FAILED. That is how the sign-in page, cached under `/dashboard`, turned
+ * every offline route into a dead tab.
+ */
+async function rememberPage(request, response) {
+  if (!response.ok || response.redirected) return;
+  if (response.type !== "basic") return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  if (!CACHEABLE_PAGES.some((prefix) => url.pathname.startsWith(prefix))) return;
+
+  // Stamped so the page can tell the reader how old it is.
+  const headers = new Headers(response.headers);
+  headers.set(CACHED_AT, new Date().toISOString());
+
+  const stored = new Response(await response.clone().blob(), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+
+  const cache = await caches.open(PAGES);
+  await cache.put(request.url, stored);
+  await trimPages(cache);
+}
+
+async function servePageFromCache(request) {
+  const cache = await caches.open(PAGES);
+
+  // Exact url first — `/library?folderId=x` and `/library` are different
+  // pages. `ignoreSearch` only as a fallback, so a viewer link carrying an
+  // unfamiliar parameter still opens.
+  const hit =
+    (await cache.match(request.url)) ??
+    (await cache.match(request, { ignoreSearch: true }));
+
+  return rebuildForNavigation(hit);
+}
+
+/**
+ * Rebuild a cached response so a navigation will accept it.
+ *
+ * Even a correctly cached response carries `redirected` and a `url`, and the
+ * navigation boundary rejects both. A fresh Response over the same body has
+ * neither.
+ */
+async function rebuildForNavigation(cached) {
+  if (!cached) return null;
+  return new Response(await cached.blob(), {
+    status: cached.status,
+    statusText: cached.statusText,
+    headers: cached.headers,
+  });
+}
+
+/** Oldest-first eviction, by the timestamp stored with each page. */
+async function trimPages(cache) {
+  const keys = await cache.keys();
+  if (keys.length <= MAX_PAGES) return;
+
+  const entries = await Promise.all(
+    keys.map(async (key) => {
+      const response = await cache.match(key);
+      return { key, at: Date.parse(response?.headers.get(CACHED_AT) ?? "") || 0 };
+    }),
+  );
+
+  entries.sort((a, b) => a.at - b.at);
+  for (const entry of entries.slice(0, entries.length - MAX_PAGES)) {
+    await cache.delete(entry.key);
+  }
 }
 
 /**

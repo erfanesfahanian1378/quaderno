@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import * as writes from "@/lib/outbox/writes";
 import { cn } from "@/lib/cn";
 
 /**
@@ -20,6 +21,7 @@ type SaveState =
   | { status: "idle" }
   | { status: "saving" }
   | { status: "saved"; at: number }
+  | { status: "queued" }
   | { status: "conflict" }
   | { status: "error"; message: string };
 
@@ -64,10 +66,28 @@ export function NotePageEditor({
       }).catch(() => null);
 
       if (!response) {
-        setState({
-          status: "error",
-          message: "No connection — your text is still here.",
+        /*
+         * No network. The text is not lost and it is not merely "still in the
+         * textarea" — it goes into the durable write queue, so it survives a
+         * reload and lands when the connection does.
+         *
+         * Queued WITHOUT the precondition: by the time it flushes, minutes or
+         * hours later, `If-Unmodified-Since` would be stale and conflict with
+         * the page's own earlier save. Conflicts that matter — someone else
+         * changing it meanwhile — still surface, from the server's own check
+         * against the stored `updatedAt`.
+         */
+        await writes.enqueue({
+          method: "PUT",
+          path: `/api/note-pages/${notePageId}`,
+          body: { content: next },
+          // One stream per page: only the last version of a page needs to be
+          // sent, and they must land in order.
+          stream: `note-page:${notePageId}`,
+          label: "Note page",
         });
+
+        setState({ status: "queued" });
         return;
       }
 
@@ -150,6 +170,14 @@ function SaveLabel({
         >
           overwrite
         </button>
+      </span>
+    );
+  }
+
+  if (state.status === "queued") {
+    return (
+      <span className="rounded-sm bg-warning-soft px-2 py-1 text-caption text-warning-on-soft">
+        Saved on this device — will sync
       </span>
     );
   }

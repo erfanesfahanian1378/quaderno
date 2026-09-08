@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api-client";
 import { Banner, Button } from "@/components/ui";
+import { useOnline } from "@/lib/offline/useOnline";
 
 type Link = {
   id: string;
@@ -22,6 +23,7 @@ type Link = {
  * rather than after someone has already sent it.
  */
 export function ShareLinks({ documentId }: { documentId: string }) {
+  const online = useOnline();
   const [links, setLinks] = useState<Link[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +84,19 @@ export function ShareLinks({ documentId }: { documentId: string }) {
   };
 
   const live = (links ?? []).filter((link) => !link.revokedAt);
+
+  if (!online) {
+    // A share link is made on the server and read by someone else over the
+    // network. There is nothing useful to offer offline.
+    return (
+      <div className="flex flex-col gap-1">
+        <p className="text-label text-ink">Share</p>
+        <p className="text-caption text-ink-3">
+          Making or revoking a link needs a connection.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2">

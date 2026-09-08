@@ -12,6 +12,7 @@ import { NotePageView } from "./NotePageView";
 import { TemplatePicker, type TemplateKey } from "./TemplatePicker";
 import { Banner } from "@/components/ui";
 import { api } from "@/lib/api-client";
+import * as writes from "@/lib/outbox/writes";
 import { cn } from "@/lib/cn";
 import { useAnnotations } from "./annotations/store";
 import { AnnotationLayer } from "./annotations/AnnotationLayer";
@@ -323,10 +324,25 @@ export function Viewer({
           geometry: { x: result.x, y: result.y },
         });
 
-        void api.post(`/api/documents/${doc.id}/comments`, {
-          body: result.text,
-          leafId: result.leafId,
-          ...(pin.id ? { annotationId: pin.id } : {}),
+        /*
+         * Through the write queue, always — not only when offline.
+         *
+         * A pin is created locally the instant it is placed, so its comment
+         * must be just as durable. Sending it directly would mean a comment
+         * lost to a tunnel while the pin it belongs to stayed on the page,
+         * which is worse than either outcome alone. The queue sends it now
+         * when there is a connection and later when there is not.
+         */
+        void writes.enqueue({
+          method: "POST",
+          path: `/api/documents/${doc.id}/comments`,
+          body: {
+            body: result.text,
+            leafId: result.leafId,
+            ...(pin.id ? { annotationId: pin.id } : {}),
+          },
+          stream: `comment:${doc.id}`,
+          label: `Note: ${result.text.slice(0, 40)}`,
         });
         return;
       }

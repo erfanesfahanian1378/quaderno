@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline · Quaderno</title>
+
+    <!--
+      A plain HTML file, deliberately.
+
+      This started as a Next route and could not work: the page loaded, then
+      threw `ChunkLoadError` because its JavaScript bundle had never been
+      cached — the reader had never visited /offline while online, so there was
+      nothing to load it from. A fallback that depends on the framework's chunk
+      graph fails at exactly the moment it exists for.
+
+      So: no build step, no chunks, no stylesheet. Everything below is inline
+      and the page works with nothing else in the cache at all. The colours are
+      the light and dark values from tokens.css, copied rather than imported
+      for the same reason.
+    -->
+    <style>
+      :root {
+        --bg: #faf8f4;
+        --surface: #fffefb;
+        --ink: #1c1b18;
+        --ink-2: #55524b;
+        --ink-3: #8a867d;
+        --hairline: #e6e1d8;
+        --accent: #3f7d58;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #16151300;
+          --bg: #161513;
+          --surface: #1f1e1b;
+          --ink: #f2efe8;
+          --ink-2: #b8b3a8;
+          --ink-3: #8a867d;
+          --hairline: #34322d;
+          --accent: #7fb894;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.5 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        width: 100%;
+        max-width: 520px;
+      }
+      .label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ink-3);
+      }
+      h1 {
+        margin: 4px 0 8px;
+        font-size: 30px;
+        line-height: 1.2;
+        font-family: ui-serif, Georgia, "Times New Roman", serif;
+        font-weight: 600;
+      }
+      p {
+        margin: 0 0 12px;
+        color: var(--ink-2);
+      }
+      .cards {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 8px 0 20px;
+        padding: 0;
+        list-style: none;
+      }
+      .cards a {
+        display: flex;
+        flex-direction: column;
+        padding: 8px 12px;
+        border: 1px solid var(--hairline);
+        border-radius: 10px;
+        background: var(--surface);
+        text-decoration: none;
+        color: var(--ink);
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .cards small {
+        color: var(--ink-3);
+        font-size: 12px;
+        font-weight: 400;
+      }
+      .foot {
+        border-top: 1px solid var(--hairline);
+        padding-top: 16px;
+        font-size: 14px;
+        color: var(--ink-2);
+      }
+      button {
+        font: inherit;
+        font-size: 14px;
+        padding: 8px 14px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <p class="label">No connection</p>
+      <h1>This page needs the network</h1>
+      <p>
+        You have not opened it since going offline, so there is nothing stored
+        to show. It will work again as soon as you reconnect.
+      </p>
+
+      <div id="available" hidden>
+        <p class="label" style="margin-top: 20px">Still available</p>
+        <ul class="cards" id="pages"></ul>
+      </div>
+
+      <p id="documents" hidden></p>
+
+      <p id="empty" hidden>
+        Nothing is stored on this device yet. Open a document while you have a
+        connection and use <strong>Keep offline</strong> to guarantee it is
+        there next time.
+      </p>
+
+      <div class="foot">
+        <p>
+          Marks, notes and review grades you make offline are saved on this
+          device and sync by themselves when you are back.
+        </p>
+        <button type="button" id="retry">Try again</button>
+      </div>
+    </main>
+
+    <script>
+      /*
+       * What is actually available, read out of Cache Storage.
+       *
+       * This page has no session and cannot ask the server anything — but the
+       * browser knows exactly what it holds. Listing it is the difference
+       * between "you are offline" and "you are offline, here is what you can
+       * still work on".
+       */
+      (function () {
+        var LABELS = [
+          [/^\/dashboard/, "Today"],
+          [/^\/library/, "Library"],
+          [/^\/review/, "Review"],
+          [/^\/schedule/, "Schedule"],
+          [/^\/stats/, "Stats"],
+        ];
+
+        document.getElementById("retry").addEventListener("click", function () {
+          // Back to where they were trying to go, not to this page again.
+          if (document.referrer && document.referrer !== location.href) {
+            location.href = document.referrer;
+          } else {
+            location.href = "/dashboard";
+          }
+        });
+
+        if (typeof caches === "undefined") return;
+
+        caches
+          .keys()
+          .then(function (names) {
+            return Promise.all(
+              names.map(function (name) {
+                return caches.open(name).then(function (cache) {
+                  return cache.keys().then(function (requests) {
+                    return Promise.all(
+                      requests.map(function (request) {
+                        return cache.match(request).then(function (response) {
+                          return { request: request, response: response };
+                        });
+                      }),
+                    );
+                  });
+                });
+              }),
+            );
+          })
+          .then(function (groups) {
+            var pages = [];
+            var documents = 0;
+            var seen = {};
+
+            groups.forEach(function (entries) {
+              entries.forEach(function (entry) {
+                var url = new URL(entry.request.url);
+
+                if (url.pathname.indexOf("/__cached-document__/") === 0) {
+                  documents += 1;
+                  return;
+                }
+                // Only the bare route: eleven near-identical "Library" links
+                // with different filters help nobody.
+                if (url.search) return;
+
+                var match = LABELS.filter(function (pair) {
+                  return pair[0].test(url.pathname);
+                })[0];
+                if (!match || seen[url.pathname]) return;
+
+                seen[url.pathname] = true;
+                var at =
+                  entry.response &&
+                  entry.response.headers.get("x-quaderno-cached-at");
+
+                pages.push({
+                  href: url.pathname,
+                  label: match[1],
+                  at: at ? new Date(at) : null,
+                });
+              });
+            });
+
+            pages.sort(function (a, b) {
+              return a.label.localeCompare(b.label);
+            });
+
+            if (pages.length) {
+              var list = document.getElementById("pages");
+              pages.forEach(function (page) {
+                var li = document.createElement("li");
+                var a = document.createElement("a");
+                a.href = page.href;
+                a.textContent = page.label;
+
+                if (page.at) {
+                  var small = document.createElement("small");
+                  small.textContent =
+                    "as at " +
+                    page.at.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                  a.appendChild(small);
+                }
+
+                li.appendChild(a);
+                list.appendChild(li);
+              });
+              document.getElementById("available").hidden = false;
+            }
+
+            if (documents) {
+              var node = document.getElementById("documents");
+              node.textContent =
+                documents +
+                (documents === 1 ? " document" : " documents") +
+                " kept offline — reachable from the library.";
+              node.hidden = false;
+            }
+
+            if (!pages.length && !documents) {
+              document.getElementById("empty").hidden = false;
+            }
+          })
+          .catch(function () {
+            // Storage blocked. An empty list is the honest answer.
+            document.getElementById("empty").hidden = false;
+          });
+      })();
+    </script>
+  </body>
+</html>

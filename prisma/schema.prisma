@@ -59,6 +59,7 @@ model User {
   folders           Folder[]
   pushSubscriptions PushSubscription[]
   notificationLogs  NotificationLog[]
+  idempotencyKeys   IdempotencyKey[]
 
   @@index([deletedAt])
 }
@@ -854,4 +855,42 @@ model NotificationLog {
 
   @@unique([userId, kind, key])
   @@index([sentAt])
+}
+
+/**
+ * A write that must not happen twice.
+ * The outbox retries. A retry that reaches the server after the first attempt
+ * already succeeded — the response was lost, the tab closed, the network
+ * dropped between the write and the reply — would grade a card a second time
+ * or post a comment twice. Neither is recoverable by the reader.
+ * So the client sends a key it generated, and the server records it with the
+ * response. A replay returns the stored response and does nothing else. Only
+ * the endpoints that are not naturally idempotent need it: a note page PUT is
+ * last-write-wins and needs none.
+ */
+model IdempotencyKey {
+  id     String @id @default(cuid())
+  userId String
+
+  /// Client-generated, unique per user. Also the outbox entry's own id.
+  key   String
+  /// The route it belonged to, so one key cannot be replayed at another.
+  scope String
+
+  /// The original response, replayed verbatim.
+  response Json
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /**
+   * Scoped, not just keyed. With `(userId, key)` alone, a key seen at one
+   * route could never be recorded at another — the insert failed the unique
+   * constraint and that endpoint silently lost its protection. Making the
+   * route part of the identity turns the scope check from a comparison into
+   * a structural fact.
+   */
+  @@unique([userId, scope, key])
+  @@index([createdAt])
 }

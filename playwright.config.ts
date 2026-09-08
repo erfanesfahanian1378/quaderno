@@ -11,6 +11,11 @@ const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  /*
+   * The offline suite is excluded: it needs a production build, and this
+   * config runs `pnpm dev`. It has its own config — `pnpm test:offline`.
+   */
+  testIgnore: /offline\.spec\.ts/,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

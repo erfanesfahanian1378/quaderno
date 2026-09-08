@@ -29,7 +29,8 @@
     "db:generate": "prisma generate",
     "analyze": "ANALYZE=true next build",
     "prepare": "husky",
-    "queue:noop": "tsx --env-file-if-exists=.env scripts/enqueue-noop.ts"
+    "queue:noop": "tsx --env-file-if-exists=.env scripts/enqueue-noop.ts",
+    "test:offline": "playwright test --config playwright.offline.config.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

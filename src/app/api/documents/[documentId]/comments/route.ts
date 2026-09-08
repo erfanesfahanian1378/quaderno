@@ -5,6 +5,7 @@ import { requireUser } from "@/server/auth/guards";
 import { notFound } from "@/server/errors";
 import * as comments from "@/server/repositories/comment";
 import { searchParams } from "@/server/api/request";
+import { withIdempotency } from "@/server/api/idempotency";
 
 type Params = { documentId: string };
 
@@ -26,15 +27,26 @@ export const GET = wrap<Params>(async (request, { params }) => {
   return NextResponse.json({ items });
 });
 
+/**
+ * Creating a comment is not idempotent — a retry after a lost response posts
+ * the same note twice, and the reader has no way to tell which is the copy.
+ */
 export const POST = wrap<Params>(async (request, { params }) => {
   const ctx = await requireUser();
   const input = createSchema.parse(await request.json());
 
-  const created = await comments.create(ctx, {
-    documentId: params.documentId,
-    ...input,
-  });
-  if (!created) throw notFound("Document");
+  return withIdempotency(
+    ctx,
+    request,
+    `comment:${params.documentId}`,
+    async () => {
+      const created = await comments.create(ctx, {
+        documentId: params.documentId,
+        ...input,
+      });
+      if (!created) throw notFound("Document");
 
-  return NextResponse.json(created, { status: 201 });
+      return { status: 201, body: created };
+    },
+  );
 });

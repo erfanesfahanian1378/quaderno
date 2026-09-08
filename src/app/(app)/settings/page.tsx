@@ -10,6 +10,7 @@ import { HighlighterLabels } from "@/components/settings/HighlighterLabels";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { SharedLinks } from "@/components/settings/SharedLinks";
 import { Reminders } from "@/components/settings/Reminders";
+import { PendingWrites } from "@/components/settings/PendingWrites";
 import { publicKey } from "@/server/services/notifications/push";
 import * as shareLinks from "@/server/repositories/share-link";
 
@@ -83,6 +84,12 @@ export default async function SettingsPage() {
           <ThemeToggle />
         </Card>
       </Section>
+
+      {/*
+        Above everything: a conflict waits for an answer and nothing else on
+        this page does.
+      */}
+      <PendingWrites />
 
       <Section
         title="Reminders"

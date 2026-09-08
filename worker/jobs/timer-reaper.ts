@@ -1,4 +1,5 @@
 import type PgBoss from "pg-boss";
+import { sweepIdempotencyKeys } from "../../src/server/api/idempotency";
 import { QUEUES } from "../queue";
 import * as study from "../../src/server/repositories/study";
 
@@ -23,9 +24,28 @@ export async function registerTimerReaper(boss: PgBoss): Promise<void> {
   await boss.schedule(QUEUES.timerReaper, "*/5 * * * *", {});
 }
 
+/**
+ * Idempotency keys outlive their usefulness.
+ *
+ * A key matters only while its write could still be retried, and the outbox
+ * gives up long before thirty days. Without a sweep the table grows for ever —
+ * one row per grade and per comment made offline, kept indefinitely.
+ *
+ * Daily, and folded in here rather than given its own queue: it is one delete
+ * statement and the reaper is already the place where housekeeping lives.
+ */
+export async function sweepKeys(): Promise<number> {
+  const removed = await sweepIdempotencyKeys();
+  if (removed > 0)
+    console.log(`[reaper] dropped ${removed} idempotency key(s)`);
+  return removed;
+}
+
 export async function reap(): Promise<number> {
   const minutes = Number(process.env.STALE_TIMER_MINUTES ?? 20);
   const staleBefore = new Date(Date.now() - minutes * 60_000);
+
+  await sweepKeys();
 
   const closed = await study.closeStaleTimers(staleBefore);
   if (closed.length > 0) {

@@ -1,0 +1,22 @@
+import { chromium } from "@playwright/test";
+const TOKEN = "901b0b81dcfe46805c3aa958a3d00cf1fbed2cca3a17bcb55ec1a59c5e173070";
+const BASE = "http://localhost:3100";
+const browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: 900, height: 800 } });
+await context.addCookies([{ name: "__Secure-authjs.session-token", value: TOKEN, domain: "localhost", path: "/", httpOnly: true, secure: true, sameSite: "Lax" }]);
+const page = await context.newPage();
+page.on("console", (m) => console.log(`  [${m.type()}]`, m.text().slice(0, 200)));
+page.on("pageerror", (e) => console.log("  PAGEERROR:", String(e).slice(0, 300)));
+page.on("response", (r) => { if (r.status() >= 300) console.log("  HTTP", r.status(), r.url().replace("http://localhost:3100","")); });
+await page.goto(BASE + "/dashboard", { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(2000);
+await page.goto(BASE + "/library", { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(1800);
+
+await context.setOffline(true);
+await page.goto(BASE + "/stats", { waitUntil: "domcontentloaded" }).catch(() => {});
+await page.waitForTimeout(2000);
+console.log("final url:", page.url().replace("http://localhost:3100",""));
+console.log("body:", (await page.locator("body").innerText()).replace(/\s+/g, " ").trim().slice(0, 320));
+await page.screenshot({ path: `${process.argv[2]}/offline-fallback.png` });
+await browser.close();

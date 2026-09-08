@@ -24,18 +24,19 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  /** Extra headers — the write queue sends an `Idempotency-Key`. */
+  headers?: Record<string, string>,
 ): Promise<ApiResult<T>> {
   let response: Response;
 
   try {
     response = await fetch(path, {
       method,
-      ...(body === undefined
-        ? {}
-        : {
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          }),
+      headers: {
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...headers,
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch {
     return {
@@ -89,10 +90,24 @@ async function request<T>(
 
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
-  post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
-  put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
-  patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>("POST", path, body, headers),
+  put: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>("PUT", path, body, headers),
+  patch: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>("PATCH", path, body, headers),
   delete: <T>(path: string) => request<T>("DELETE", path),
+
+  /**
+   * The generic form, for the write queue — which replays a stored method and
+   * path it does not know at compile time, with an idempotency header.
+   */
+  request: <T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ) => request<T>(method, path, body, headers),
 };
 
 /**
