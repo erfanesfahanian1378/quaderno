@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/precache-manifest.mjs",
     "start": "next start",
     "worker:dev": "tsx watch --env-file-if-exists=.env worker/index.ts",
     "worker:start": "tsx --env-file-if-exists=.env worker/index.ts",
@@ -31,7 +31,8 @@
     "prepare": "husky",
     "queue:noop": "tsx --env-file-if-exists=.env scripts/enqueue-noop.ts",
     "test:offline": "playwright test --config playwright.offline.config.ts",
-    "https": "node scripts/https-proxy.mjs"
+    "https": "node scripts/https-proxy.mjs",
+    "precache": "node scripts/precache-manifest.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

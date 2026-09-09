@@ -81,6 +81,30 @@ async function cacheEntries(
   });
 }
 
+/**
+ * Wait until the background warm has stored a route.
+ *
+ * The warm runs on idle after first paint, so there is no moment in the page
+ * lifecycle to hook — polling the cache for the thing under test is the only
+ * honest signal that it is there.
+ */
+async function waitForCachedPage(page: Page, path: string): Promise<void> {
+  await page.waitForFunction(
+    async (wanted) => {
+      for (const name of await caches.keys()) {
+        if (!name.startsWith("quaderno-pages-")) continue;
+        const cache = await caches.open(name);
+        for (const request of await cache.keys()) {
+          if (new URL(request.url).pathname === wanted) return true;
+        }
+      }
+      return false;
+    },
+    path,
+    { timeout: 30_000 },
+  );
+}
+
 const TOKEN = process.env.E2E_SESSION_TOKEN ?? "";
 
 test.describe("offline", () => {
@@ -167,7 +191,16 @@ test.describe("offline", () => {
     );
   });
 
-  test("an unvisited page falls back instead of failing", async ({
+  /*
+   * The test that this whole phase exists for.
+   *
+   * It used to assert the opposite — that a page you had not visited fell back
+   * to the offline stub — and passing it was the bug. Being told "this page
+   * needs the network" for a page the server could have sent an hour earlier,
+   * over wifi, for nothing, is not offline support. The warm pass is what
+   * changed the answer.
+   */
+  test("a page never visited still renders offline", async ({
     context,
     page,
   }) => {
@@ -176,20 +209,70 @@ test.describe("offline", () => {
     await page.goto("/dashboard");
     await waitForController(page);
     await page.goto("/dashboard");
-    await page.waitForTimeout(1200);
+
+    // Warmed in the background, not by visiting it.
+    await waitForCachedPage(page, "/stats");
 
     await context.setOffline(true);
-    // Never visited, so nothing is cached for it.
     await page.goto("/stats");
 
-    // A page, not the browser's error. The fallback is a static file with no
-    // chunks, because a Next route threw ChunkLoadError here — its bundle had
-    // never been cached either.
-    await expect(page).toHaveURL(/\/offline\.html$/);
-    await expect(page.locator("h1")).toContainText("needs the network");
+    await expect(page).not.toHaveURL(/offline\.html/);
+    await expect(
+      page.getByRole("heading", { name: /stats/i }).first(),
+    ).toBeVisible();
   });
 
-  test("the fallback lists what is still available", async ({
+  test("every main route renders offline after warming", async ({
+    context,
+    page,
+  }) => {
+    await signIn(context, TOKEN);
+
+    await page.goto("/dashboard");
+    await waitForController(page);
+    await page.goto("/dashboard");
+
+    for (const route of ["/review", "/schedule", "/search", "/settings"]) {
+      await waitForCachedPage(page, route);
+    }
+
+    await context.setOffline(true);
+
+    for (const route of ["/review", "/schedule", "/search", "/settings"]) {
+      await page.goto(route);
+      // The route itself, not a redirect to the stub.
+      expect(new URL(page.url()).pathname, `${route} fell back`).toBe(route);
+      // And it rendered: the app frame is present, not a blank chunk failure.
+      await expect(page.locator("main").first()).toBeVisible();
+    }
+  });
+
+  /**
+   * Moving between pages WITHOUT a reload.
+   *
+   * Next fetches a flight payload rather than a document for an in-app link.
+   * Those requests are a separate cache path and were previously not handled
+   * at all, so every offline navigation depended on Next noticing the failure
+   * and falling back to a full load.
+   */
+  test("in-app links work offline", async ({ context, page }) => {
+    await signIn(context, TOKEN);
+
+    await page.goto("/dashboard");
+    await waitForController(page);
+    await page.goto("/dashboard");
+    await waitForCachedPage(page, "/schedule");
+
+    await context.setOffline(true);
+
+    const link = page.getByRole("link", { name: /schedule/i }).first();
+    await link.click();
+
+    await page.waitForURL(/\/schedule/, { timeout: 15_000 });
+    await expect(page).not.toHaveURL(/offline\.html/);
+  });
+
+  test("the fallback still catches a route nothing knows about", async ({
     context,
     page,
   }) => {
@@ -201,7 +284,9 @@ test.describe("offline", () => {
     await page.waitForTimeout(1500);
 
     await context.setOffline(true);
-    await page.goto("/settings");
+    // A document that was never opened and never kept. Its page is dynamic and
+    // its bytes are hundreds of megabytes; guessing is not an option.
+    await page.goto("/d/never-existed-at-all");
 
     await expect(page.getByText("Still available")).toBeVisible();
     await expect(page.getByRole("link", { name: /Library/ })).toBeVisible();

@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { LanguageSettings } from "@/components/settings/LanguageSettings";
 import { HighlighterLabels } from "@/components/settings/HighlighterLabels";
 import { SignOutButton } from "@/components/settings/SignOutButton";
+import { OfflineStorage } from "@/components/settings/OfflineStorage";
 import { SharedLinks } from "@/components/settings/SharedLinks";
 import { Reminders } from "@/components/settings/Reminders";
 import { PendingWrites } from "@/components/settings/PendingWrites";
@@ -118,6 +119,13 @@ export default async function SettingsPage() {
             createdAt: link.createdAt.toISOString(),
           }))}
         />
+      </Section>
+
+      <Section
+        title="Offline"
+        note="What this device keeps so the app works with no connection."
+      >
+        <OfflineStorage />
       </Section>
 
       <Section title="Storage">

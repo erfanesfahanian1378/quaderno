@@ -1,28 +1,44 @@
 /* eslint-disable no-undef */
 /**
- * Quaderno's service worker. PHASE-13.
+ * Quaderno's service worker. PHASE-13, rewritten in PHASE-17.
  *
- * Hand-rolled rather than Workbox: this is the whole caching story and it is
- * about 150 lines, against a build-tool dependency and a generated file
- * nobody reads.
+ * Hand-rolled rather than Workbox: this is the whole caching story in one
+ * file, against a build-tool dependency and a generated file nobody reads.
  *
- * The one thing to understand before changing anything here: **pdf.js
- * requests BYTE RANGES, not whole files.** A naive cache stores two hundred
- * partial 206 responses per document and can satisfy none of them, because
- * the next request asks for a different range. So a document is cached as one
- * complete body, keyed by its documentId, and range requests are served by
- * slicing that body ourselves.
+ * Two things to understand before changing anything here.
+ *
+ * **pdf.js requests BYTE RANGES, not whole files.** A naive cache stores two
+ * hundred partial 206 responses per document and can satisfy none of them,
+ * because the next request asks for a different window. So a document is
+ * cached as one complete body keyed by its documentId, and ranges are served
+ * by slicing that body ourselves.
+ *
+ * **A Next page is HTML plus a graph of hashed JavaScript chunks.** Caching
+ * the HTML alone gets you a page that loads and then throws ChunkLoadError.
+ * Which chunks exist is only known after a build, so the build writes
+ * /precache.json and install reads it.
  */
 
 /*
- * v2 — PHASE-16.
+ * v3 — PHASE-17: cache everything up front, not on second visit.
  *
- * The bump is load-bearing, not cosmetic. Every v1 install cached the SIGN-IN
- * page under `/dashboard` and `/library` (see PRECACHE below), and the
- * activate handler deletes any cache whose name does not end in the current
- * version. Without the bump the fix reaches nobody who already used the app.
+ * v2 cached a page only *after* it had been visited online. That is fine for a
+ * page you return to and useless for the case that actually matters — opening
+ * the app with no signal and tapping something you have not tapped before,
+ * which answered "you are offline" for a page the server had been perfectly
+ * able to send an hour earlier.
+ *
+ * Three things changed. Install now caches every build asset from the
+ * manifest, so no route can die on a missing chunk. A signed-in client asks
+ * the worker to WARM every route it knows about, so the HTML is there before
+ * it is wanted. And React's own navigation payloads are cached, so moving
+ * between pages offline does not need a full reload to work.
+ *
+ * The version bump is load-bearing: activate deletes every cache whose name
+ * does not carry the current version, which is how a fix reaches someone
+ * already running the old worker.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL = `quaderno-shell-${VERSION}`;
 const DOCS = `quaderno-docs-${VERSION}`;
 const PAGES = `quaderno-pages-${VERSION}`;
@@ -34,20 +50,23 @@ const MAX_DOC_BYTES = 200 * 1024 * 1024;
  * Cached pages are capped by COUNT, not bytes.
  *
  * `/library` varies by `?languageId=&folderId=`, so the key space is unbounded
- * — without a cap, a few minutes of clicking through folders fills the origin's
- * storage quota with HTML.
+ * — without a cap, a few minutes of clicking through folders fills the
+ * origin's storage quota with HTML.
  */
-const MAX_PAGES = 50;
+const MAX_PAGES = 120;
 
 /** When a page was stored, so the reader can be told how stale it is. */
 const CACHED_AT = "x-quaderno-cached-at";
 
 /**
- * Which pages are worth keeping.
+ * Which pages are worth keeping: all of them.
  *
- * `/search` is absent on purpose: a search box that cannot search is worse
- * than one that says it needs a connection. `/settings` too — every control on
- * it writes to the server.
+ * `/search` and `/settings` used to be excluded on the reasoning that a search
+ * box which cannot search is worse than an honest "needs a connection". That
+ * was wrong at the page level. A cached /search renders, shows the language
+ * picker and recent items, and reports that searching needs a connection *in
+ * the one control that needs one* — whereas excluding the page replaced the
+ * entire app with an offline stub. Degrade the control, never the route.
  */
 const CACHEABLE_PAGES = [
   "/dashboard",
@@ -55,23 +74,27 @@ const CACHEABLE_PAGES = [
   "/review",
   "/schedule",
   "/stats",
+  "/search",
+  "/settings",
+  "/study",
+  "/onboarding",
   "/d/",
 ];
 
 /**
- * PUBLIC urls only.
- *
- * This list used to include `/dashboard` and `/library`. Install runs when the
- * worker registers, which is BEFORE anyone signs in — so `cache.addAll`
- * followed the redirect to `/sign-in` and stored the sign-in page under those
- * keys. Offline, the fallback then handed a redirected response to a
- * navigation, which browsers refuse outright, and every route died with
- * ERR_FAILED.
- *
- * Authenticated routes are cached at runtime instead, after a real
- * authenticated navigation, where the response is the page and not a redirect.
+ * Routes warmed on a signed-in client's behalf, with no document ids: the
+ * client appends those, because only it knows them.
  */
-const PRECACHE = ["/offline.html", "/manifest.webmanifest"];
+const WARM_ROUTES = [
+  "/dashboard",
+  "/library",
+  "/review",
+  "/schedule",
+  "/stats",
+  "/search",
+  "/settings",
+  "/study",
+];
 
 /**
  * Where a navigation goes when there is nothing cached for it.
@@ -87,36 +110,103 @@ const PRECACHE = ["/offline.html", "/manifest.webmanifest"];
  */
 const FALLBACK = "/offline.html";
 
+/** Written by the build. See scripts/precache-manifest.mjs. */
+const MANIFEST = "/precache.json";
+
+/** Where the manifest version last installed is remembered. */
+const INSTALLED_VERSION = "/__precache-version__";
+
 self.addEventListener("install", (event) => {
   event.waitUntil(precache().then(() => self.skipWaiting()));
 });
 
 /**
- * Fetch each precache url individually and keep only what is safe to keep.
+ * Cache every asset the build produced, plus the offline fallback.
  *
  * Not `cache.addAll`, which cannot filter: it stores whatever comes back,
- * redirects included. `/` redirects to `/dashboard` for a signed-in visitor,
- * so `addAll` would put a redirected response in the cache and serving it to a
- * navigation fails the load outright — the same fault that broke `/dashboard`
- * in v1, one url along.
+ * redirects included, and one 404 rejects the whole call — so a single missing
+ * asset would leave the worker with nothing. Each url is fetched on its own
+ * and a failure costs only that url.
  *
- * One failure does not fail the install. A worker that refuses to install
- * because the network hiccuped once is worse than one with a thin cache.
+ * The manifest is skipped when absent, which is the case in `next dev`: there
+ * is no build output to enumerate, chunks are generated on demand, and the
+ * runtime caching below covers what the reader actually touches.
  */
 async function precache() {
   const cache = await caches.open(SHELL);
 
-  await Promise.all(
-    PRECACHE.map(async (url) => {
-      try {
-        const response = await fetch(url, { credentials: "same-origin" });
-        if (!response.ok || response.redirected) return;
-        await cache.put(url, response);
-      } catch {
-        // Offline at install, or the url moved. Neither is fatal.
+  let manifest = null;
+  try {
+    const response = await fetch(MANIFEST, { cache: "no-cache" });
+    if (response.ok) manifest = await response.json();
+  } catch {
+    // Offline at install, or a dev server. Neither is fatal.
+  }
+
+  const assets = manifest?.assets ?? [FALLBACK, "/manifest.webmanifest"];
+
+  /*
+   * Skip the whole download when nothing changed.
+   *
+   * Asset filenames are content-hashed, so an unchanged redeploy produces an
+   * identical list. Re-fetching several megabytes because a container
+   * restarted — over whatever connection the reader happens to be on — is a
+   * cost with no benefit.
+   */
+  const installed = await cache.match(INSTALLED_VERSION);
+  const known = installed ? await installed.text() : null;
+  const wanted = manifest?.version ?? "none";
+
+  if (known === wanted) return;
+
+  /*
+   * Bounded concurrency. `Promise.all` over ~200 chunk urls opens 200 sockets,
+   * which on a phone is slower than six at a time and can have the browser
+   * drop requests outright.
+   */
+  await inBatches(assets, 6, async (url) => {
+    try {
+      const response = await fetch(url, {
+        credentials: "same-origin",
+        cache: "no-cache",
+      });
+      if (!response.ok || response.redirected) return;
+      await cache.put(url, response);
+    } catch {
+      // One asset short is a worse cache, not a broken install.
+    }
+  });
+
+  await cache.put(INSTALLED_VERSION, new Response(wanted));
+
+  /*
+   * Prune what this build no longer references.
+   *
+   * Without it the shell cache grows by the size of a full build on every
+   * deploy and is never reclaimed until the version constant changes.
+   */
+  const keep = new Set([...assets, INSTALLED_VERSION]);
+  for (const request of await cache.keys()) {
+    const path = new URL(request.url).pathname;
+    if (!keep.has(path) && path.startsWith("/_next/static")) {
+      await cache.delete(request);
+    }
+  }
+}
+
+/** Run `task` over `items`, at most `width` in flight. */
+async function inBatches(items, width, task) {
+  const queue = [...items];
+  const workers = Array.from({ length: Math.min(width, queue.length) }, () =>
+    (async () => {
+      for (;;) {
+        const item = queue.shift();
+        if (item === undefined) return;
+        await task(item);
       }
-    }),
+    })(),
   );
+  await Promise.all(workers);
 }
 
 self.addEventListener("activate", (event) => {
@@ -134,11 +224,10 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-/**
- * The page asks us to keep a document. It hands over the signed URL, which is
- * short-lived — we fetch it NOW and store the body under a stable key, so the
- * expiry never matters again.
- */
+// ---------------------------------------------------------------------------
+// Messages from the page
+// ---------------------------------------------------------------------------
+
 self.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || typeof data !== "object") return;
@@ -146,6 +235,7 @@ self.addEventListener("message", (event) => {
   if (data.type === "cache-document") {
     event.waitUntil(cacheDocument(data.documentId, data.url));
   }
+
   if (data.type === "drop-document") {
     event.waitUntil(
       Promise.all([
@@ -161,7 +251,111 @@ self.addEventListener("message", (event) => {
       ]),
     );
   }
+
+  if (data.type === "warm") {
+    event.waitUntil(warm(data.pages ?? [], data.api ?? []));
+  }
+
+  /*
+   * Sign-out.
+   *
+   * Cached pages are rendered HTML containing one person's library, schedule
+   * and notes. Leaving them behind means the next person to sign in on this
+   * device sees the previous one's dashboard until the network answers. The
+   * documents cache goes too — those are their files.
+   */
+  if (data.type === "sign-out") {
+    event.waitUntil(
+      Promise.all([
+        caches.delete(PAGES),
+        caches.delete(DOCS),
+        caches.open(SHELL).then(async (cache) => {
+          // Build assets are impersonal and expensive to refetch; only the
+          // API responses stored alongside them identify anyone.
+          for (const request of await cache.keys()) {
+            if (new URL(request.url).pathname.startsWith("/api/")) {
+              await cache.delete(request);
+            }
+          }
+        }),
+      ]),
+    );
+  }
 });
+
+/**
+ * Fetch and cache every route the client can name, before it is asked for.
+ *
+ * This is what turns "offline works for pages you already opened" into
+ * "offline works". Each route is stored twice: as a document, for a cold
+ * start or a reload, and as an RSC payload, for a link tapped inside the
+ * running app. They are different responses to the same url and the router
+ * needs the second one.
+ *
+ * Progress is reported per page so the UI can show real movement rather than
+ * a spinner that means nothing.
+ */
+async function warm(extraPages, api) {
+  const pages = [...new Set([...WARM_ROUTES, ...extraPages])];
+  const total = pages.length + api.length;
+  let done = 0;
+
+  const announce = async (label) => {
+    done += 1;
+    const clients = await self.clients.matchAll();
+    for (const client of clients) {
+      client.postMessage({ type: "warm-progress", done, total, label });
+    }
+  };
+
+  await inBatches(pages, 4, async (path) => {
+    try {
+      const url = new URL(path, self.location.origin);
+
+      const page = await fetch(url, {
+        credentials: "include",
+        headers: { "X-Quaderno-Warm": "1" },
+      });
+      await rememberPage(new Request(url.toString()), page);
+
+      // The router's own payload. Requested exactly as Next requests it, so
+      // what lands in the cache is what the router will later look for.
+      const rsc = await fetch(url, {
+        credentials: "include",
+        headers: { RSC: "1", "X-Quaderno-Warm": "1" },
+      });
+      await rememberFlight(url, rsc);
+    } catch {
+      // A route that will not warm is a route that falls back to the network,
+      // which is where it was already.
+    }
+    await announce(path);
+  });
+
+  await inBatches(api, 4, async (path) => {
+    try {
+      const response = await fetch(new URL(path, self.location.origin), {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const cache = await caches.open(SHELL);
+        await cache.put(path, stripVary(response));
+      }
+    } catch {
+      // Same reasoning.
+    }
+    await announce(path);
+  });
+
+  const clients = await self.clients.matchAll();
+  for (const client of clients) {
+    client.postMessage({ type: "warm-done", total });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Documents
+// ---------------------------------------------------------------------------
 
 function docKey(documentId) {
   // A stable, same-origin key. NOT the signed URL: that changes every five
@@ -238,6 +432,14 @@ async function cacheDocument(documentId, url) {
     // refusal and the same staleness stamp.
     await rememberPage(new Request(pageUrl.toString()), page);
 
+    // And the router's payload, so reaching it from the library offline does
+    // not need a reload.
+    const flight = await fetch(pageUrl, {
+      credentials: "include",
+      headers: { RSC: "1" },
+    });
+    await rememberFlight(pageUrl, flight);
+
     const response = await fetch(url);
     if (!response.ok) return;
 
@@ -299,6 +501,10 @@ async function evictIfOver(cache) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Fetch
+// ---------------------------------------------------------------------------
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -319,9 +525,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Same-origin immutable build output: cache-first, it never changes.
-  if (url.origin === self.location.origin && url.pathname.startsWith("/_next/static")) {
+  if (url.origin !== self.location.origin) return;
+
+  // Immutable build output: cache-first, it never changes.
+  if (url.pathname.startsWith("/_next/static")) {
     event.respondWith(cacheFirst(SHELL, request));
+    return;
+  }
+
+  /*
+   * The router's own navigation payloads.
+   *
+   * Checked BEFORE navigations, though the two cannot collide — an RSC fetch
+   * has mode "cors", never "navigate" — because reading it in this order is
+   * how the file explains itself.
+   */
+  if (isFlight(request, url)) {
+    event.respondWith(handleFlight(request, url));
     return;
   }
 
@@ -332,37 +552,144 @@ self.addEventListener("fetch", (event) => {
   }
 
   /*
-   * API reads the offline viewer depends on: annotations, and the signed URL
-   * it will not be able to refresh. Network-first, then whatever we last saw
-   * — a stale annotation list is far better than a broken page, and the
-   * outbox reconciles on reconnect anyway.
+   * Every API read, not only the viewer's.
+   *
+   * This was limited to `/api/documents/`, which meant the viewer worked
+   * offline and nothing else did: the review queue, the schedule and the deck
+   * lists all fetch on the client and all failed. Network-first with a cached
+   * fallback gives a stale answer instead of no answer, and the outbox
+   * reconciles writes on reconnect regardless.
+   *
+   * `/api/auth/` is excluded — a cached session response is a security
+   * problem, not a convenience — and so is anything that is not a read.
    */
-  if (url.origin === self.location.origin && url.pathname.startsWith("/api/documents/")) {
-    event.respondWith(
-      fetch(request)
-        .then(async (response) => {
-          if (response.ok) {
-            const cache = await caches.open(SHELL);
-            await cache.put(request, response.clone());
-          }
-          return response;
-        })
-        .catch(async () => (await caches.match(request)) ?? Response.error()),
-    );
+  if (url.pathname.startsWith("/api/") && !url.pathname.startsWith("/api/auth/")) {
+    event.respondWith(networkFirst(SHELL, request));
     return;
   }
+
+  // Everything else under /public: icons, the pdf worker, fonts.
+  if (!url.pathname.startsWith("/api/")) {
+    event.respondWith(cacheFirst(SHELL, request));
+  }
 });
+
+/**
+ * Is this React asking for a route payload rather than a page?
+ *
+ * Next marks these two ways and sends both: the `RSC` header on the fetch, and
+ * a `_rsc` cache-buster in the query string. Either is enough to recognise
+ * one, and checking both means a change to one of them does not silently turn
+ * every navigation payload into an uncached miss.
+ */
+function isFlight(request, url) {
+  return request.headers.get("RSC") === "1" || url.searchParams.has("_rsc");
+}
+
+/**
+ * A synthetic key for a route payload.
+ *
+ * `_rsc` is a cache-buster derived from the build, so it must come out of the
+ * key or a payload cached under one build id is unreachable under the next.
+ * Prefetches are keyed apart because they are a DIFFERENT, partial response to
+ * the same url — serving one where the router expected a full tree renders a
+ * blank route.
+ */
+function flightKey(url, prefetch) {
+  const clean = new URL(url.toString());
+  clean.searchParams.delete("_rsc");
+  const suffix = prefetch ? "?__prefetch=1" : "";
+  return `/__flight__${clean.pathname}${clean.search}${suffix}`;
+}
+
+/**
+ * A response is not cacheable while it carries `Vary`.
+ *
+ * Next varies RSC responses on `RSC` and `Next-Router-State-Tree`, and the
+ * Cache API honours that: a payload stored against a real request matches only
+ * a request with identical headers, and the state tree differs by wherever the
+ * reader happened to navigate from. So it would store and never hit. Dropping
+ * the header is what makes the entry reachable, and is safe because the key
+ * already encodes everything we vary on ourselves.
+ */
+function stripVary(response) {
+  const headers = new Headers(response.headers);
+  headers.delete("Vary");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+async function rememberFlight(url, response) {
+  if (!response.ok || response.redirected) return;
+
+  const prefetch = response.headers.get("Next-Router-Prefetch") === "1";
+  const cache = await caches.open(PAGES);
+  await cache.put(flightKey(url, prefetch), stripVary(response.clone()));
+}
+
+/**
+ * Network first, cached payload second, and a *failure* third — never the
+ * offline page.
+ *
+ * This is the one place where returning the fallback would be actively
+ * harmful. The router expects a flight payload; handed an HTML document it
+ * throws inside the navigation and the reader gets a client-side exception on
+ * a page that was working. A failed fetch, by contrast, is a case Next already
+ * handles: it gives up on the soft navigation and does a full page load, which
+ * lands on `handleNavigation` and the cached HTML.
+ */
+async function handleFlight(request, url) {
+  const prefetch = request.headers.get("Next-Router-Prefetch") === "1";
+
+  let response;
+  try {
+    response = await fetch(request);
+  } catch {
+    const cache = await caches.open(PAGES);
+    const cached =
+      (await cache.match(flightKey(url, prefetch))) ??
+      (await cache.match(flightKey(url, false)));
+    return cached ?? Response.error();
+  }
+
+  const copy = response.clone();
+  rememberFlight(url, copy).catch(() => {});
+  return response;
+}
 
 async function cacheFirst(cacheName, request) {
   const cached = await caches.match(request);
   if (cached) return cached;
 
-  const response = await fetch(request);
-  if (response.ok) {
-    const cache = await caches.open(cacheName);
-    await cache.put(request, response.clone());
+  try {
+    const response = await fetch(request);
+    if (response.ok && !response.redirected) {
+      const cache = await caches.open(cacheName);
+      await cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    // An asset that is neither cached nor reachable. The caller sees the
+    // failure it would have seen without a worker.
+    throw error;
   }
-  return response;
+}
+
+async function networkFirst(cacheName, request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      await cache.put(request, stripVary(response.clone()));
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(request, { ignoreVary: true });
+    return cached ?? Response.error();
+  }
 }
 
 /**
@@ -416,10 +743,10 @@ async function offlineResponse(request) {
   if (cached) return cached;
 
   /*
-   * REDIRECT to /offline rather than serving its HTML here.
-     *
+   * REDIRECT to the fallback rather than serving its HTML here.
+   *
    * Next's client router compares the URL it is on with the payload it was
-   * given. Handing the /offline document back under /stats hydrates the wrong
+   * given. Handing the offline document back under /stats hydrates the wrong
    * route and throws "a client-side exception has occurred" — a worse failure
    * than the one being handled.
    *
@@ -459,6 +786,7 @@ async function rememberPage(request, response) {
   // Stamped so the page can tell the reader how old it is.
   const headers = new Headers(response.headers);
   headers.set(CACHED_AT, new Date().toISOString());
+  headers.delete("Vary");
 
   const stored = new Response(await response.blob(), {
     status: response.status,
@@ -467,7 +795,7 @@ async function rememberPage(request, response) {
   });
 
   const cache = await caches.open(PAGES);
-  await cache.put(request.url, stored);
+  await cache.put(url.toString(), stored);
   await trimPages(cache);
 }
 
@@ -478,8 +806,8 @@ async function servePageFromCache(request) {
   // pages. `ignoreSearch` only as a fallback, so a viewer link carrying an
   // unfamiliar parameter still opens.
   const hit =
-    (await cache.match(request.url)) ??
-    (await cache.match(request, { ignoreSearch: true }));
+    (await cache.match(request.url, { ignoreVary: true })) ??
+    (await cache.match(request, { ignoreSearch: true, ignoreVary: true }));
 
   return rebuildForNavigation(hit);
 }
@@ -508,7 +836,10 @@ async function trimPages(cache) {
   const entries = await Promise.all(
     keys.map(async (key) => {
       const response = await cache.match(key);
-      return { key, at: Date.parse(response?.headers.get(CACHED_AT) ?? "") || 0 };
+      return {
+        key,
+        at: Date.parse(response?.headers.get(CACHED_AT) ?? "") || 0,
+      };
     }),
   );
 
