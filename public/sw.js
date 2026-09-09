@@ -38,7 +38,7 @@
  * does not carry the current version, which is how a fix reaches someone
  * already running the old worker.
  */
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL = `quaderno-shell-${VERSION}`;
 const DOCS = `quaderno-docs-${VERSION}`;
 const PAGES = `quaderno-pages-${VERSION}`;
@@ -116,8 +116,23 @@ const MANIFEST = "/precache.json";
 /** Where the manifest version last installed is remembered. */
 const INSTALLED_VERSION = "/__precache-version__";
 
+/**
+ * Install holds only the fallback page. The build assets come later.
+ *
+ * `skipWaiting()` does not make a worker active — it only skips the wait for
+ * the old one to be released. The worker still has to FINISH INSTALLING
+ * first, so anything in this event's `waitUntil` delays taking control by
+ * exactly that long. With the full manifest in here that was 136 requests and
+ * 3.8 MB: a first visit went uncontrolled until the whole build had
+ * downloaded, and on a slow connection the page could be closed before it
+ * ever finished.
+ *
+ * So install keeps the two files the fallback needs, and the bulk moves to
+ * activate, where it runs *after* clients are claimed.
+ */
 self.addEventListener("install", (event) => {
-  event.waitUntil(precache().then(() => self.skipWaiting()));
+  self.skipWaiting();
+  event.waitUntil(precacheCritical());
 });
 
 /**
@@ -132,7 +147,23 @@ self.addEventListener("install", (event) => {
  * is no build output to enumerate, chunks are generated on demand, and the
  * runtime caching below covers what the reader actually touches.
  */
-async function precache() {
+/** The offline fallback and its manifest. Two files, always worth waiting for. */
+async function precacheCritical() {
+  const cache = await caches.open(SHELL);
+
+  await inBatches([FALLBACK, "/manifest.webmanifest"], 2, async (url) => {
+    try {
+      const response = await fetch(url, { credentials: "same-origin" });
+      if (!response.ok || response.redirected) return;
+      await cache.put(url, response);
+    } catch {
+      // Offline at install. The fallback is then unavailable until the next
+      // visit, which is the same position as not having a worker at all.
+    }
+  });
+}
+
+async function precacheAssets() {
   const cache = await caches.open(SHELL);
 
   let manifest = null;
@@ -143,7 +174,15 @@ async function precache() {
     // Offline at install, or a dev server. Neither is fatal.
   }
 
-  const assets = manifest?.assets ?? [FALLBACK, "/manifest.webmanifest"];
+  /*
+   * No manifest means no build output to enumerate — a dev server, or a
+   * deploy where the generator did not run. Nothing to do: precacheCritical
+   * has already stored the fallback, and everything else is cached as it is
+   * used.
+   */
+  if (!manifest) return;
+
+  const assets = manifest.assets;
 
   /*
    * Skip the whole download when nothing changed.
@@ -155,7 +194,7 @@ async function precache() {
    */
   const installed = await cache.match(INSTALLED_VERSION);
   const known = installed ? await installed.text() : null;
-  const wanted = manifest?.version ?? "none";
+  const wanted = manifest.version;
 
   if (known === wanted) return;
 
@@ -211,16 +250,26 @@ async function inBatches(items, width, task) {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => !key.endsWith(VERSION))
-            .map((key) => caches.delete(key)),
-        ),
-      )
-      .then(() => self.clients.claim()),
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => !key.endsWith(VERSION))
+          .map((key) => caches.delete(key)),
+      );
+
+      // Claim BEFORE the download, so the page is controlled in milliseconds
+      // rather than megabytes.
+      await self.clients.claim();
+
+      /*
+       * Still inside `waitUntil`, which is what keeps the worker alive while
+       * it runs — a fire-and-forget promise here would be killed the moment
+       * the browser decided the worker was idle, leaving the cache half
+       * filled with no way to notice.
+       */
+      await precacheAssets();
+    })(),
   );
 });
 
@@ -527,7 +576,15 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin !== self.location.origin) return;
 
-  // Immutable build output: cache-first, it never changes.
+  /*
+   * Immutable build output: cache-first.
+   *
+   * True of a PRODUCTION build, where every chunk filename carries a content
+   * hash, and false of `next dev`, where chunks are named by route and
+   * rewritten on every edit. This worker is never registered in development
+   * for exactly that reason — see lib/offline/register.ts. If that ever
+   * changes, this line is the bug.
+   */
   if (url.pathname.startsWith("/_next/static")) {
     event.respondWith(cacheFirst(SHELL, request));
     return;

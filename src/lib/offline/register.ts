@@ -19,14 +19,57 @@ export function offlineSupport(): OfflineSupport {
   return "ready";
 }
 
+/**
+ * NOT in development, and any worker already there is removed.
+ *
+ * A service worker serves stale content on purpose. In development that means
+ * serving code you have already changed — and Next makes it worse than usual,
+ * because dev chunks are named by ROUTE (`app/(app)/settings/page.js`,
+ * `webpack.js`) with contents that change on every edit, while a production
+ * build content-hashes every filename. `/_next/static` is immutable in exactly
+ * one of those two cases, and the worker believed both.
+ *
+ * The result is webpack resolving a module id that no longer exists —
+ * "Cannot read properties of undefined (reading 'call')" — blamed on whatever
+ * component is in the stack, and immune to every edit made to fix it, because
+ * the edits never reach the browser.
+ *
+ * Nothing is lost by switching it off here: the offline suite has always run
+ * against a production build, since `next dev` serves chunks from urls with
+ * changing `?v=` query strings and nothing cache-first ever hits.
+ *
+ * The dev server also rewrites /sw.js to a worker that unregisters itself, so
+ * a browser too far gone to run this function still recovers. Both, because
+ * this one cannot run when the bug it fixes is what is broken.
+ */
 export async function registerServiceWorker(): Promise<boolean> {
   if (offlineSupport() !== "ready") return false;
+
+  if (process.env.NODE_ENV === "development") {
+    await unregisterServiceWorker();
+    return false;
+  }
 
   try {
     await navigator.serviceWorker.register("/sw.js", { scope: "/" });
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Remove every worker and every cache this app has put on the device. */
+export async function unregisterServiceWorker(): Promise<void> {
+  try {
+    for (const registration of await navigator.serviceWorker.getRegistrations()) {
+      await registration.unregister();
+    }
+
+    for (const key of await caches.keys()) {
+      if (key.startsWith("quaderno-")) await caches.delete(key);
+    }
+  } catch {
+    // Nothing here is worth breaking a page load over.
   }
 }
 
