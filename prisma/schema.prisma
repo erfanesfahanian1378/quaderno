@@ -60,6 +60,7 @@ model User {
   pushSubscriptions PushSubscription[]
   notificationLogs  NotificationLog[]
   idempotencyKeys   IdempotencyKey[]
+  decks             Deck[]
 
   @@index([deletedAt])
 }
@@ -130,6 +131,7 @@ model Language {
   dayAggregates    StudyDayAggregate[]
   reviewCards      ReviewCard[]
   folders          Folder[]
+  decks            Deck[]
 
   @@unique([userId, code])
   @@index([userId, archivedAt])
@@ -634,9 +636,18 @@ model AuditLog {
  * that survivable — see src/server/services/review/parse.ts.
  */
 model ReviewCard {
-  id         String  @id @default(cuid())
-  userId     String
-  notePageId String
+  id     String @id @default(cuid())
+  userId String
+
+  /**
+   * A card comes from exactly one of two places, and which one decides how it
+   * is maintained. A table card is reconciled from its note page on every save
+   * — edit the row, the card follows. A deck card is written by hand and is
+   * nobody's derivative, so nothing rewrites it.
+   */
+  notePageId String?
+  deckId     String?
+
   languageId String?
 
   /// Position in the table when last synced. Used only to re-match a row
@@ -670,11 +681,13 @@ model ReviewCard {
   updatedAt DateTime @updatedAt
 
   user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notePage NotePage    @relation(fields: [notePageId], references: [id], onDelete: Cascade)
+  notePage NotePage?   @relation(fields: [notePageId], references: [id], onDelete: Cascade)
+  deck     Deck?       @relation(fields: [deckId], references: [id], onDelete: Cascade)
   language Language?   @relation(fields: [languageId], references: [id], onDelete: SetNull)
   logs     ReviewLog[]
 
   @@unique([notePageId, rowKey])
+  @@index([deckId])
   @@index([userId, dueOn])
   @@index([userId, languageId, dueOn])
   @@index([notePageId])
@@ -893,4 +906,31 @@ model IdempotencyKey {
    */
   @@unique([userId, scope, key])
   @@index([createdAt])
+}
+
+/**
+ * A deck of hand-made flashcards.
+ * Separate from documents on purpose: the words worth remembering are often
+ * not the ones in any particular handout, and a deck of loose vocabulary has
+ * nowhere to live if a card must belong to a page.
+ * Its cards share the ReviewCard table and therefore the same scheduler, the
+ * same review screen and the same Anki export as the ones parsed out of
+ * vocabulary tables. Only their origin differs.
+ */
+model Deck {
+  id         String @id @default(cuid())
+  userId     String
+  languageId String
+
+  name        String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language Language     @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  cards    ReviewCard[]
+
+  @@index([userId, languageId])
 }

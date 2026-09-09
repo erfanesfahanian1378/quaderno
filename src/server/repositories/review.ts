@@ -4,7 +4,9 @@ import type { Grade } from "@/server/services/review/sm2";
 
 export type CardRow = {
   id: string;
-  notePageId: string;
+  /** Null for a hand-made card: it came from a deck, not a table. */
+  notePageId: string | null;
+  deckId: string | null;
   languageId: string | null;
   row: number;
   rowKey: string;
@@ -23,6 +25,7 @@ export type CardRow = {
 const FIELDS = {
   id: true,
   notePageId: true,
+  deckId: true,
   languageId: true,
   row: true,
   rowKey: true,
@@ -227,5 +230,120 @@ export async function forExport(
     },
     orderBy: [{ notePageId: "asc" }, { row: "asc" }],
     select: FIELDS,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Hand-made cards
+// ---------------------------------------------------------------------------
+
+/**
+ * Add a card to a deck.
+ *
+ * `row` and `rowKey` exist for the table reconciler, which matches a parsed
+ * row back to its card. A deck card is not derived from anything, so it takes
+ * a unique key of its own and nothing ever tries to re-match it — two cards
+ * with the same word are two cards, which is what a person adding them by hand
+ * expects.
+ */
+export async function createInDeck(
+  ctx: Ctx,
+  input: {
+    deckId: string;
+    languageId: string | null;
+    front: string;
+    back: string;
+    example?: string | null;
+    note?: string | null;
+    dueOn: string;
+    rowKey: string;
+    row: number;
+  },
+): Promise<CardRow> {
+  return prisma.reviewCard.create({
+    data: {
+      userId: ctx.userId,
+      deckId: input.deckId,
+      languageId: input.languageId,
+      row: input.row,
+      rowKey: input.rowKey,
+      front: input.front,
+      back: input.back,
+      example: input.example ?? null,
+      note: input.note ?? null,
+      dueOn: input.dueOn,
+    },
+    select: FIELDS,
+  });
+}
+
+export async function forDeck(ctx: Ctx, deckId: string): Promise<CardRow[]> {
+  return prisma.reviewCard.findMany({
+    where: { userId: ctx.userId, deckId, retiredAt: null },
+    orderBy: { row: "asc" },
+    select: FIELDS,
+  });
+}
+
+export async function countInDeck(ctx: Ctx, deckId: string): Promise<number> {
+  return prisma.reviewCard.count({ where: { userId: ctx.userId, deckId } });
+}
+
+/** Edit a hand-made card. Refuses a table card, which its page owns. */
+export async function editCard(
+  ctx: Ctx,
+  id: string,
+  data: {
+    front?: string | undefined;
+    back?: string | undefined;
+    example?: string | null | undefined;
+    note?: string | null | undefined;
+  },
+): Promise<CardRow | null> {
+  const result = await prisma.reviewCard.updateMany({
+    // `deckId: { not: null }` is the guard: editing a card that came from a
+    // vocabulary table would be undone by the next save of that page, so the
+    // edit belongs in the table, not here.
+    where: { id, userId: ctx.userId, deckId: { not: null } },
+    data,
+  });
+  if (result.count === 0) return null;
+  return findById(ctx, id);
+}
+
+export async function deleteCard(ctx: Ctx, id: string): Promise<boolean> {
+  const result = await prisma.reviewCard.deleteMany({
+    where: { id, userId: ctx.userId, deckId: { not: null } },
+  });
+  return result.count > 0;
+}
+
+/** Every live card for a language, for the box view. */
+export async function forBoxes(
+  ctx: Ctx,
+  languageId?: string,
+): Promise<
+  {
+    id: string;
+    front: string;
+    intervalDays: number;
+    reps: number;
+    dueOn: string;
+  }[]
+> {
+  return prisma.reviewCard.findMany({
+    where: {
+      userId: ctx.userId,
+      retiredAt: null,
+      ...(languageId ? { languageId } : {}),
+    },
+    select: {
+      id: true,
+      front: true,
+      intervalDays: true,
+      reps: true,
+      dueOn: true,
+    },
+    orderBy: { dueOn: "asc" },
   });
 }

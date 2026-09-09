@@ -5,6 +5,9 @@ import * as users from "@/server/repositories/user";
 import { previewIntervals } from "@/server/services/review/sm2";
 import { dayKeyInZone } from "@/lib/time";
 import { Session } from "@/components/review/Session";
+import { BoxShelf } from "@/components/review/BoxShelf";
+import { Decks } from "@/components/review/Decks";
+import * as decks from "@/server/repositories/deck";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 
@@ -38,13 +41,15 @@ export default async function ReviewPage({
     ? list.find((entry) => entry.id === languageId)
     : undefined;
 
-  const [cards, total, byLanguage] = await Promise.all([
+  const [cards, total, byLanguage, shelf, deckList] = await Promise.all([
     review.due(ctx, todayKey, {
       ...(languageId ? { languageId } : {}),
       limit: 60,
     }),
     review.dueCount(ctx, todayKey, languageId),
     review.dueByLanguage(ctx, todayKey),
+    review.forBoxes(ctx, languageId),
+    decks.list(ctx, languageId ?? list[0]?.id),
   ]);
 
   return (
@@ -76,6 +81,13 @@ export default async function ReviewPage({
         </nav>
       ) : null}
 
+      {/*
+        The shelf sits above the session: seeing where the cards are is what
+        makes someone start one, and it is the first thing worth looking at
+        when nothing is due.
+      */}
+      <BoxShelf cards={shelf} todayKey={todayKey} />
+
       <Session
         initial={cards.map((card) => ({
           id: card.id,
@@ -90,6 +102,16 @@ export default async function ReviewPage({
         total={total}
         languageCode={language?.code ?? list[0]?.code ?? "en"}
         {...(languageId ? { languageId } : {})}
+      />
+
+      <Decks
+        languageId={languageId ?? list[0]?.id ?? ""}
+        decks={deckList.map((deck) => ({
+          id: deck.id,
+          name: deck.name,
+          description: deck.description,
+          cardCount: deck.cardCount,
+        }))}
       />
     </div>
   );
