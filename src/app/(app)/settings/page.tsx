@@ -9,6 +9,7 @@ import { LanguageSettings } from "@/components/settings/LanguageSettings";
 import { HighlighterLabels } from "@/components/settings/HighlighterLabels";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { OfflineStorage } from "@/components/settings/OfflineStorage";
+import { formatBytes } from "@/lib/bytes";
 import { SharedLinks } from "@/components/settings/SharedLinks";
 import { Reminders } from "@/components/settings/Reminders";
 import { PendingWrites } from "@/components/settings/PendingWrites";
@@ -170,11 +171,4 @@ function Section({
       {children}
     </section>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(0)} kB`;
-  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }

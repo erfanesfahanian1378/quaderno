@@ -5,7 +5,7 @@ import { handler } from "@/lib/api-client";
 import { Banner, Button, Card } from "@/components/ui";
 import { cachedDocumentIds, offlineSupport } from "@/lib/offline/register";
 import { forgetEverything, keepEverything } from "@/lib/offline/warm";
-import { formatBytes } from "@/lib/compress-pdf";
+import { formatBytes } from "@/lib/bytes";
 
 /**
  * What this device is holding, and the one button that fills it.

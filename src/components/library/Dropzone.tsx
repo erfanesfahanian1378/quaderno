@@ -8,10 +8,10 @@ import { Banner, Button } from "@/components/ui";
 import { UploadIcon } from "@/components/nav/icons";
 import { cn } from "@/lib/cn";
 import { useOnline } from "@/lib/offline/useOnline";
+import { formatBytes } from "@/lib/bytes";
 import {
   canCompress,
   compressPdf,
-  formatBytes,
   type CompressResult,
 } from "@/lib/compress-pdf";
 
