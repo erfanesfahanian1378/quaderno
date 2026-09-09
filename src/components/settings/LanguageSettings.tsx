@@ -62,9 +62,7 @@ export function LanguageSettings({
   }
 
   if (languages.length === 0) {
-    return (
-      <Banner tone="info">No languages yet. Add one from the sidebar.</Banner>
-    );
+    return <Banner tone="info">No languages yet — add one below.</Banner>;
   }
 
   return (

@@ -112,8 +112,9 @@ export function Sidebar({
           );
         })}
 
+        {/* /settings/languages has never existed; the control is in Settings. */}
         <Link
-          href="/settings/languages"
+          href="/settings#languages"
           className="mt-1 flex items-center gap-2.5 rounded-sm px-2 py-2 text-label text-ink-3 transition-colors duration-[120ms] hover:bg-subtle hover:text-ink"
         >
           <PlusIcon className="size-4" />

@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { ChevronIcon } from "@/components/nav/icons";
 import { ExportMenu } from "./ExportMenu";
 import { OfflineButton } from "./OfflineButton";
+import { ShareButton } from "./ShareButton";
 import { SyncIndicator } from "./SyncIndicator";
 import type { SyncState } from "@/lib/outbox/queue";
 import type { ViewerDocument } from "./Viewer";
@@ -88,6 +89,7 @@ export function ViewerHeader({
       <div className="hidden shrink-0 items-center gap-2 sm:flex">
         <SyncIndicator state={syncState} />
         <OfflineButton documentId={doc.id} />
+        <ShareButton documentId={doc.id} />
         <ExportMenu
           documentId={doc.id}
           title={doc.title}
@@ -231,6 +233,12 @@ export function ViewerHeader({
                 printState={printState}
               />
             </div>
+
+            <ShareButton
+              documentId={doc.id}
+              variant="row"
+              onOpen={() => setOverflowOpen(false)}
+            />
 
             {doc.conversionEngine === "libreoffice" ? (
               <p className="px-1 pt-1 text-caption text-ink-3">

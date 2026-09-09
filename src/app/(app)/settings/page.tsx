@@ -9,6 +9,7 @@ import { LanguageSettings } from "@/components/settings/LanguageSettings";
 import { HighlighterLabels } from "@/components/settings/HighlighterLabels";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { OfflineStorage } from "@/components/settings/OfflineStorage";
+import { AddLanguage } from "@/components/settings/AddLanguage";
 import { formatBytes } from "@/lib/bytes";
 import { SharedLinks } from "@/components/settings/SharedLinks";
 import { Reminders } from "@/components/settings/Reminders";
@@ -56,8 +57,9 @@ export default async function SettingsPage() {
       </Section>
 
       <Section
+        id="languages"
         title="Languages"
-        note="Rename, set a level, pick a colour, or archive one you are not studying now."
+        note="Add one, rename it, set a level, pick a colour, or archive one you are not studying now."
       >
         <LanguageSettings
           languages={list}
@@ -66,6 +68,16 @@ export default async function SettingsPage() {
             targetMinutes,
           }))}
         />
+
+        {/*
+          Adding one lives HERE, not only in the sidebar.
+
+          The sidebar is `lg:` and up, so on a phone there was no way to add a
+          second language at all — and the link it carried pointed at
+          /settings/languages, which does not exist. Someone studying Italian
+          and French could add neither the French nor find out why.
+        */}
+        <AddLanguage existing={list.map((entry) => entry.code)} />
       </Section>
 
       <Section
@@ -152,16 +164,22 @@ export default async function SettingsPage() {
 }
 
 function Section({
+  id,
   title,
   note,
   children,
 }: {
+  /** For deep links such as /settings#languages. */
+  id?: string;
   title: string;
   note?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section
+      {...(id ? { id } : {})}
+      className="scroll-mt-4 flex flex-col gap-3"
+    >
       <div>
         <h2 className="text-h3 text-ink">{title}</h2>
         {note ? (
