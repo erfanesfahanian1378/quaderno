@@ -34,11 +34,19 @@ export const GET = wrap(async () => {
 
   const pages: string[] = [];
 
-  // The library as each language's own view, which is how it is reached from
-  // the sidebar — `/library` alone is not the page anyone lands on.
+  /*
+   * The library and review screens as each language's own view, which is how
+   * they are reached from the sidebar — `/library` alone is not the page
+   * anyone lands on.
+   *
+   * The two take DIFFERENT parameter names, and getting it wrong is silent:
+   * `/review?languageId=…` is not an error, it is the unfiltered page cached
+   * under a url that promised a filter. Checked against the pages themselves,
+   * which read `languageId` and `language` respectively.
+   */
   for (const language of langs) {
     pages.push(`/library?languageId=${encodeURIComponent(language.id)}`);
-    pages.push(`/review?languageId=${encodeURIComponent(language.id)}`);
+    pages.push(`/review?language=${encodeURIComponent(language.id)}`);
   }
 
   for (const document of recent.items) pages.push(`/d/${document.id}`);

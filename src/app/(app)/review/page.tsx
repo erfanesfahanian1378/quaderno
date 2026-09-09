@@ -49,18 +49,43 @@ export default async function ReviewPage({
     review.dueCount(ctx, todayKey, languageId),
     review.dueByLanguage(ctx, todayKey),
     review.forBoxes(ctx, languageId),
-    decks.list(ctx, languageId ?? list[0]?.id),
+    /*
+     * `languageId` straight through, undefined included.
+     *
+     * This used to fall back to `list[0]?.id`, so "All" quietly showed only
+     * the first language's decks — and a deck created from there went into
+     * that language whatever the person was actually studying. With two
+     * languages on the go that is not a filter, it is a wrong answer.
+     */
+    decks.list(ctx, languageId),
   ]);
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-reading text-display text-ink">Review</h1>
-        <p className="mt-1 text-body-sm text-ink-2">
-          {total === 0
-            ? "Nothing due right now."
-            : `${total} ${total === 1 ? "card" : "cards"} due${language ? ` in ${language.name}` : ""}.`}
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-reading text-display text-ink">Review</h1>
+          <p className="mt-1 text-body-sm text-ink-2">
+            {total === 0
+              ? "Nothing due right now."
+              : `${total} ${total === 1 ? "card" : "cards"} due${language ? ` in ${language.name}` : ""}.`}
+          </p>
+        </div>
+
+        {/*
+          A way down to the decks.
+
+          They belong below the session — reviewing is the daily thing and
+          making cards is not — but on a phone that puts them a screen and a
+          half past the fold, behind a card, a voice picker and five boxes.
+          Reachable and second is right; second and invisible is not.
+        */}
+        <a
+          href="#decks-heading"
+          className="rounded-sm px-2 py-1 text-label text-ink-2 underline decoration-hairline-strong underline-offset-4 hover:text-ink"
+        >
+          Your own cards ↓
+        </a>
       </header>
 
       {list.length > 1 ? (
@@ -88,7 +113,18 @@ export default async function ReviewPage({
       */}
       <BoxShelf cards={shelf} todayKey={todayKey} />
 
+      {/*
+        Keyed by language, so switching remounts it.
+
+        `Session` seeds its queue with `useState(initial)`, which reads its
+        argument once and never again. Switching from Italiano to Français is
+        a client-side navigation: the props change, the state does not, and
+        the page then says "Nothing due right now" directly above an Italian
+        card and "4 left". A key is what tells React these are different
+        sessions rather than the same one with new props.
+      */}
       <Session
+        key={languageId ?? "all"}
         initial={cards.map((card) => ({
           id: card.id,
           front: card.front,
@@ -105,12 +141,14 @@ export default async function ReviewPage({
       />
 
       <Decks
-        languageId={languageId ?? list[0]?.id ?? ""}
+        languages={list.map((entry) => ({ id: entry.id, name: entry.name }))}
+        selectedLanguageId={languageId ?? null}
         decks={deckList.map((deck) => ({
           id: deck.id,
           name: deck.name,
           description: deck.description,
           cardCount: deck.cardCount,
+          languageId: deck.languageId,
         }))}
       />
     </div>

@@ -11,7 +11,10 @@ export type DeckSummary = {
   name: string;
   description: string | null;
   cardCount: number;
+  languageId: string;
 };
+
+export type DeckLanguage = { id: string; name: string };
 
 /**
  * Decks of hand-made cards, and the form to add one.
@@ -25,10 +28,13 @@ export type DeckSummary = {
  * that closes after one is a form that gets used once.
  */
 export function Decks({
-  languageId,
+  languages,
+  selectedLanguageId,
   decks,
 }: {
-  languageId: string;
+  languages: DeckLanguage[];
+  /** `null` is "All". */
+  selectedLanguageId: string | null;
   decks: DeckSummary[];
 }) {
   const router = useRouter();
@@ -38,10 +44,26 @@ export function Decks({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /*
+   * Which language a new deck goes into.
+   *
+   * With a language selected there is nothing to ask. On "All" with more than
+   * one, there is — and guessing was the old behaviour: it took the first
+   * language in the list, so someone studying Italian and French got a French
+   * deck filed under Italian and no indication it had happened.
+   */
+  const [target, setTarget] = useState<string>(
+    selectedLanguageId ?? languages[0]?.id ?? "",
+  );
+  const mustChoose = selectedLanguageId === null && languages.length > 1;
+  const languageName = (id: string) =>
+    languages.find((entry) => entry.id === id)?.name ?? "";
+
   const createDeck = handler(
     async () => {
       const trimmed = name.trim();
-      if (!trimmed) return;
+      const languageId = selectedLanguageId ?? target;
+      if (!trimmed || !languageId) return;
 
       setBusy(true);
       setError(null);
@@ -77,7 +99,7 @@ export function Decks({
           </p>
         </div>
 
-        {!creating ? (
+        {!creating && languages.length > 0 ? (
           <Button
             size="sm"
             variant="secondary"
@@ -104,6 +126,24 @@ export function Decks({
             maxLength={80}
             className="h-9 min-w-0 flex-1 rounded-sm border border-hairline-strong bg-surface px-3 text-body text-ink sm:max-w-[280px]"
           />
+
+          {mustChoose ? (
+            <label className="flex items-center gap-1.5">
+              <span className="text-caption text-ink-3">in</span>
+              <select
+                value={target}
+                onChange={(event) => setTarget(event.target.value)}
+                className="h-9 rounded-sm border border-hairline-strong bg-surface px-2 text-body-sm text-ink"
+              >
+                {languages.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
           <Button size="sm" loading={busy} onClick={createDeck}>
             Create
           </Button>
@@ -115,8 +155,11 @@ export function Decks({
 
       {decks.length === 0 && !creating ? (
         <p className="text-body-sm text-ink-3">
-          No decks yet. Vocabulary tables in your notes already become cards on
-          their own — a deck is for everything else.
+          {selectedLanguageId
+            ? `No decks in ${languageName(selectedLanguageId)} yet.`
+            : "No decks yet."}{" "}
+          Vocabulary tables in your notes already become cards on their own — a
+          deck is for everything else.
         </p>
       ) : null}
 
@@ -139,6 +182,14 @@ export function Decks({
                   {deck.name}
                 </span>
                 <span className="block text-caption text-ink-3">
+                  {/*
+                    The language, but only where it is not already the answer
+                    to the whole page. Repeating "Italiano" down a filtered
+                    list is noise; omitting it on "All" is the bug this fixes.
+                  */}
+                  {selectedLanguageId === null && languages.length > 1
+                    ? `${languageName(deck.languageId)} · `
+                    : ""}
                   {deck.cardCount} card{deck.cardCount === 1 ? "" : "s"}
                 </span>
               </span>
