@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   RDP_EPSILON,
+  SmoothPath,
   round,
   simplify,
   toSmoothPath,
@@ -159,5 +160,77 @@ describe("toSmoothPath", () => {
 describe("round", () => {
   it("trims coordinates to sub-pixel precision", () => {
     expect(round([[0.123456789, 0.987654321]])).toEqual([[0.123457, 0.987654]]);
+  });
+});
+
+describe("SmoothPath — incremental, and identical", () => {
+  const stroke = (count: number): Point[] =>
+    Array.from({ length: count }, (_, i): Point => [
+      i / count,
+      Math.sin(i / 3) / 4 + 0.5,
+    ]);
+
+  it("matches toSmoothPath at every length", () => {
+    /*
+     * The whole point. The live stroke is drawn incrementally for speed, and a
+     * faster curve that is subtly different from the one finally stored would
+     * mean the ink shifts the moment you lift the pen.
+     */
+    for (let count = 0; count <= 40; count += 1) {
+      const points = stroke(count);
+      const builder = new SmoothPath();
+      for (const point of points) builder.push(point);
+
+      expect(builder.toString(), `length ${count}`).toBe(toSmoothPath(points));
+    }
+  });
+
+  it("is unchanged by being read as it goes", () => {
+    // Reading commits segments, so a builder read on every frame must still
+    // end up identical to one read only at the end.
+    const points = stroke(30);
+
+    const readEachTime = new SmoothPath();
+    const readOnce = new SmoothPath();
+    for (const point of points) {
+      readEachTime.push(point);
+      readEachTime.toString();
+      readOnce.push(point);
+    }
+
+    expect(readEachTime.toString()).toBe(readOnce.toString());
+  });
+
+  it("handles a dot and a two-point line", () => {
+    const dot = new SmoothPath();
+    dot.push([0.5, 0.5]);
+    expect(dot.toString()).toBe(toSmoothPath([[0.5, 0.5]]));
+
+    const line = new SmoothPath();
+    line.push([0, 0]);
+    line.push([1, 1]);
+    expect(line.toString()).toBe(
+      toSmoothPath([
+        [0, 0],
+        [1, 1],
+      ]),
+    );
+  });
+
+  it("does no work proportional to the whole stroke", () => {
+    // The property that makes it worth having: appending one point to a long
+    // stroke costs the same as appending it to a short one.
+    const builder = new SmoothPath();
+    for (let i = 0; i < 4000; i += 1) builder.push([i / 4000, 0.5]);
+    builder.toString();
+
+    const started = performance.now();
+    builder.push([1, 0.5]);
+    builder.toString();
+    const appendToLong = performance.now() - started;
+
+    // Rebuilding 4000 points from scratch is milliseconds; an append is
+    // microseconds. A generous bound still fails if the O(n²) returns.
+    expect(appendToLong).toBeLessThan(2);
   });
 });

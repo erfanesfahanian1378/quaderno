@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from "react";
 import { toNormalised, type PageGeometry } from "../coords";
-import { round, simplify, toSmoothPath, type Point } from "./simplify";
+import { SmoothPath, round, simplify, type Point } from "./simplify";
 
 /**
  * Freehand ink capture. ANNOTATION_ENGINE.md §4.
@@ -41,6 +41,12 @@ export function useInkCapture({
   const activePointer = useRef<number | null>(null);
   const penIsDown = useRef(false);
   const livePath = useRef<SVGPathElement | null>(null);
+  /** Builds the curve as points arrive, instead of from scratch every time. */
+  const builder = useRef<SmoothPath | null>(null);
+  /** The page box, measured once per stroke rather than per event. */
+  const rect = useRef<DOMRect | null>(null);
+  /** The pending animation frame, so writes coalesce to one per frame. */
+  const frame = useRef<number | null>(null);
   const geometryRef = useRef<PageGeometry | null>(null);
   const leafRef = useRef<string | null>(null);
 
@@ -77,13 +83,27 @@ export function useInkCapture({
       geometryRef.current = geometry;
       leafRef.current = leafId;
 
-      const rect = target.getBoundingClientRect();
+      /*
+       * The page box, measured ONCE.
+       *
+       * `getBoundingClientRect` forces the browser to flush layout, and it was
+       * being called on every pointermove — up to 240 times a second on a
+       * 120 Hz pen. The pointer is captured and the page cannot scroll during
+       * a stroke, so one measurement holds for the whole line.
+       */
+      rect.current = target.getBoundingClientRect();
+
       const point = toNormalised(
-        { x: event.clientX - rect.left, y: event.clientY - rect.top },
+        {
+          x: event.clientX - rect.current.left,
+          y: event.clientY - rect.current.top,
+        },
         geometry,
       );
 
       points.current = [[point.x, point.y]];
+      builder.current = new SmoothPath();
+      builder.current.push([point.x, point.y]);
       // Mice report pressure 0; treat that as a normal press rather than
       // rendering an invisible stroke.
       pressures.current = [event.pressure > 0 ? event.pressure : 0.5];
@@ -114,9 +134,8 @@ export function useInkCapture({
 
       const geometry = geometryRef.current;
       const path = livePath.current;
-      if (!geometry || !path) return;
-
-      const rect = event.currentTarget.getBoundingClientRect();
+      const box = rect.current;
+      if (!geometry || !path || !box) return;
 
       /*
        * getCoalescedEvents gives every sample the OS captured between frames,
@@ -130,15 +149,31 @@ export function useInkCapture({
 
       for (const sample of samples) {
         const point = toNormalised(
-          { x: sample.clientX - rect.left, y: sample.clientY - rect.top },
+          { x: sample.clientX - box.left, y: sample.clientY - box.top },
           geometry,
         );
         points.current.push([point.x, point.y]);
+        builder.current?.push([point.x, point.y]);
         pressures.current.push(sample.pressure > 0 ? sample.pressure : 0.5);
       }
 
-      // Direct DOM write. No setState, no re-render.
-      path.setAttribute("d", toSmoothPath(points.current));
+      /*
+       * One DOM write per FRAME, not per event.
+       *
+       * Pointer events arrive faster than the screen refreshes — every write
+       * beyond the first in a frame is thrown away by the compositor, having
+       * cost a full re-parse of the path. Coalescing above already captures
+       * the samples, so nothing is lost by drawing them together.
+       */
+      if (frame.current === null) {
+        frame.current = requestAnimationFrame(() => {
+          frame.current = null;
+          const live = livePath.current;
+          if (live && builder.current) {
+            live.setAttribute("d", builder.current.toString());
+          }
+        });
+      }
     },
     [enabled],
   );
@@ -149,6 +184,14 @@ export function useInkCapture({
 
       const leafId = leafRef.current;
       const raw = points.current;
+
+      // A frame may still be queued; it must not paint after the path is gone.
+      if (frame.current !== null) {
+        cancelAnimationFrame(frame.current);
+        frame.current = null;
+      }
+      builder.current = null;
+      rect.current = null;
 
       // Clean up the throwaway path first, so an early return cannot leave it
       // stuck on the page.

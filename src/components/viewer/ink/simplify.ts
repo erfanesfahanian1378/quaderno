@@ -119,3 +119,88 @@ export function round(points: Point[], decimals = 6): Point[] {
       ] as Point,
   );
 }
+
+/**
+ * The same curve, built as points arrive instead of all at once.
+ *
+ * `toSmoothPath` regenerates the whole `d` attribute from every point. During
+ * a live stroke that ran on every pointer event, so the work per event grew
+ * with the stroke — O(n²) over one line — and the browser re-parsed a string
+ * that got longer with every sample. On a phone a long stroke visibly lagged
+ * behind the finger.
+ *
+ * A Catmull-Rom segment `i` depends on points `i-1 … i+2`, so once two further
+ * points exist it can never change again. Those segments are appended to a
+ * committed prefix and never recomputed; only the last two are rebuilt each
+ * frame. Per-frame work becomes proportional to the NEW points, not the total.
+ *
+ * The output is identical to `toSmoothPath` for the same input — asserted in
+ * tests/unit/simplify.spec.ts, because "faster but subtly different curve"
+ * would be a bad trade nobody noticed.
+ */
+export class SmoothPath {
+  private readonly points: Point[] = [];
+  private committed = "";
+  /** Segments already folded into `committed`. */
+  private done = 0;
+
+  push(point: Point): void {
+    this.points.push(point);
+  }
+
+  get length(): number {
+    return this.points.length;
+  }
+
+  /** The `d` attribute for everything pushed so far. */
+  toString(): string {
+    const points = this.points;
+    if (points.length === 0) return "";
+
+    if (points.length === 1) {
+      const [x, y] = points[0]!;
+      return `M ${x} ${y} L ${x} ${y}`;
+    }
+    if (points.length === 2) {
+      const [[x1, y1], [x2, y2]] = points as [Point, Point];
+      return `M ${x1} ${y1} L ${x2} ${y2}`;
+    }
+
+    if (this.committed === "") {
+      this.committed = `M ${points[0]![0]} ${points[0]![1]}`;
+    }
+
+    /*
+     * Segment i reads p[i+2], so it is final only once that point exists —
+     * i <= length - 3. Anything past that is rebuilt below and will change
+     * as the stroke continues.
+     */
+    const settled = points.length - 3;
+    while (this.done <= settled) {
+      this.committed += ` ${segment(points, this.done)}`;
+      this.done += 1;
+    }
+
+    let tail = "";
+    for (let i = this.done; i < points.length - 1; i += 1) {
+      tail += ` ${segment(points, i)}`;
+    }
+
+    return this.committed + tail;
+  }
+}
+
+/** One Catmull-Rom span, expressed as a cubic Bézier. */
+function segment(points: Point[], i: number): string {
+  const p0 = points[Math.max(0, i - 1)]!;
+  const p1 = points[i]!;
+  const p2 = points[i + 1]!;
+  const p3 = points[Math.min(points.length - 1, i + 2)]!;
+
+  const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+  const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+  const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+  const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+
+  return `C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2[0]} ${p2[1]}`;
+}

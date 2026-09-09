@@ -19,12 +19,15 @@ import {
  * level and on every screen, which is the same reason coordinates are
  * normalised. 0.022 is the size every note had before this was choosable.
  */
-export const TEXT_SIZES = [
-  { key: "S", value: 0.014 },
-  { key: "M", value: 0.022 },
-  { key: "L", value: 0.032 },
-  { key: "XL", value: 0.046 },
-] as const;
+/**
+ * The steps − and + move between.
+ *
+ * Steps rather than a free number: a note is sized as a fraction of the page,
+ * and letting someone nudge it by 0.001 at a time gives sizes nobody can tell
+ * apart and a control that needs twenty taps to do anything. Six steps span
+ * "footnote" to "title" and every one is visibly different from its neighbours.
+ */
+export const TEXT_SIZES = [0.012, 0.017, 0.022, 0.03, 0.04, 0.055] as const;
 
 export const DEFAULT_TEXT_SIZE = 0.022;
 
@@ -121,6 +124,19 @@ export const InlineComposer = forwardRef<
   const [fontSize, setFontSize] = useState<number>(DEFAULT_TEXT_SIZE);
   const positionRef = useRef<Position | null>(null);
   const fontSizeRef = useRef<number>(DEFAULT_TEXT_SIZE);
+
+  /*
+   * Nearest step to the current size, so a note written before these steps
+   * existed — or at a size the steps do not contain — still lands somewhere
+   * sensible rather than snapping to the smallest.
+   */
+  const stepIndex = TEXT_SIZES.reduce(
+    (best, value, index) =>
+      Math.abs(value - fontSize) < Math.abs(TEXT_SIZES[best]! - fontSize)
+        ? index
+        : best,
+    0,
+  );
 
   const chooseSize = (value: number) => {
     fontSizeRef.current = value;
@@ -363,28 +379,45 @@ export const InlineComposer = forwardRef<
 
         {active && position.kind === "text" ? (
           <div className="mt-2 flex items-center gap-1 border-t border-hairline pt-2">
-            <span className="mr-1 text-caption text-ink-3">Size</span>
-            {TEXT_SIZES.map((size) => (
-              <button
-                key={size.key}
-                type="button"
-                aria-pressed={fontSize === size.value}
-                // onMouseDown, like the format buttons: onClick lands after
-                // the editor has already lost focus and the caret with it.
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  chooseSize(size.value);
-                }}
-                className={cn(
-                  "h-6 rounded-sm px-2 text-caption transition-colors duration-[120ms]",
-                  fontSize === size.value
-                    ? "bg-accent/15 text-accent"
-                    : "text-ink-2 hover:bg-subtle hover:text-ink",
-                )}
-              >
-                {size.key}
-              </button>
-            ))}
+            <span className="mr-auto text-caption text-ink-3">Size</span>
+
+            <button
+              type="button"
+              aria-label="Smaller"
+              disabled={stepIndex <= 0}
+              // onMouseDown, like the format buttons: onClick lands after the
+              // editor has already lost focus and the caret with it.
+              onMouseDown={(event) => {
+                event.preventDefault();
+                chooseSize(TEXT_SIZES[Math.max(0, stepIndex - 1)]!);
+              }}
+              className="grid size-7 place-items-center rounded-sm text-body text-ink-2 hover:bg-subtle hover:text-ink disabled:opacity-30"
+            >
+              −
+            </button>
+
+            {/*
+              The step, not the fraction. "3 of 6" means something; "0.022 of
+              the page height" does not.
+            */}
+            <span className="min-w-[34px] text-center text-caption tabular text-ink-2">
+              {stepIndex + 1}/{TEXT_SIZES.length}
+            </span>
+
+            <button
+              type="button"
+              aria-label="Bigger"
+              disabled={stepIndex >= TEXT_SIZES.length - 1}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                chooseSize(
+                  TEXT_SIZES[Math.min(TEXT_SIZES.length - 1, stepIndex + 1)]!,
+                );
+              }}
+              className="grid size-7 place-items-center rounded-sm text-body text-ink-2 hover:bg-subtle hover:text-ink disabled:opacity-30"
+            >
+              +
+            </button>
           </div>
         ) : null}
 

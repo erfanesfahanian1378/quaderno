@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
    */
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   reactStrictMode: true,
+
+  /*
+   * Hide the dev-tools bubble.
+   *
+   * It anchors bottom-left, exactly where the viewer's hand tool sits, and on
+   * a phone it covers it — the first toolbar button cannot be tapped. It never
+   * appears in a production build, so this only affects `pnpm dev`, where it
+   * was getting in the way of testing the thing it overlaps.
+   */
+  devIndicators: false,
   poweredByHeader: false,
   typescript: { ignoreBuildErrors: false },
   eslint: { ignoreDuringBuilds: false },
