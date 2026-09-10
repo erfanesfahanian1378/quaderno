@@ -131,9 +131,9 @@ export function Dropzone({
       }
 
       // XHR rather than fetch, purely for upload progress — fetch still has no
-      // request-progress event, and a 50 MB upload with no feedback feels
+      // request-progress event, and a large upload with no feedback feels
       // broken.
-      const uploaded = await new Promise<boolean>((resolve) => {
+      const uploaded = await new Promise<UploadOutcome>((resolve) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presigned.data.uploadUrl);
         for (const [key, value] of Object.entries(presigned.data.headers)) {
@@ -149,17 +149,31 @@ export function Dropzone({
           }
         });
         xhr.addEventListener("load", () =>
-          resolve(xhr.status >= 200 && xhr.status < 300),
+          resolve(
+            xhr.status >= 200 && xhr.status < 300
+              ? { ok: true }
+              : { ok: false, status: xhr.status, body: xhr.responseText },
+          ),
         );
-        xhr.addEventListener("error", () => resolve(false));
+        /*
+         * `error` carries NO detail, by design.
+         *
+         * The browser refuses to tell a page why a cross-origin request
+         * failed — an untrusted certificate, a host that is not listening and
+         * a blocked request all arrive here identically with status 0. So the
+         * message cannot diagnose; what it can do is name the host being
+         * written to, which is the one fact that turns "check your
+         * connection" into something a person can act on.
+         */
+        xhr.addEventListener("error", () => resolve({ ok: false, status: 0 }));
+        xhr.addEventListener("abort", () => resolve({ ok: false, status: 0 }));
         xhr.send(file);
       });
 
-      if (!uploaded) {
+      if (!uploaded.ok) {
         patch(id, {
           state: "error",
-          message:
-            "The upload did not finish — the file never reached storage. Check your connection.",
+          message: uploadFailureMessage(uploaded, presigned.data.uploadUrl),
         });
 
         // Clean up the row we created at presign time. Leaving it behind
@@ -325,6 +339,17 @@ export function Dropzone({
             PDF, Word, PowerPoint, images or plain text. Everything becomes a
             PDF you can mark up — the original is kept.
           </p>
+          {/*
+            The limit, stated rather than discovered.
+
+            It was only ever shown after a file had already been rejected, so
+            the only way to learn it was to hit it — and once raised, there was
+            nothing in the interface to say so. Someone who remembered the old
+            number had no way to find out it had changed except by trying.
+          */}
+          <p className="mt-1 text-caption text-ink-3">
+            Up to {formatBytes(maxBytes)} per file.
+          </p>
         </div>
 
         <Button
@@ -442,4 +467,39 @@ export function Dropzone({
       ) : null}
     </div>
   );
+}
+
+type UploadOutcome =
+  { ok: true } | { ok: false; status: number; body?: string };
+
+/**
+ * What to say when the file did not reach storage.
+ *
+ * The old message was "Check your connection", which was wrong often enough
+ * to be harmful: the connection is usually fine and the storage host is not
+ * reachable from the browser — a certificate it does not trust, or the local
+ * TLS front door not running. Being told to check the wrong thing sent a real
+ * debugging session chasing a file-size limit that had already been raised.
+ *
+ * Size is never the cause here. The server checks that at presign and says so
+ * plainly; by this point a signed url has already been issued.
+ */
+function uploadFailureMessage(
+  outcome: { status: number; body?: string },
+  uploadUrl: string,
+): string {
+  let host = "storage";
+  try {
+    host = new URL(uploadUrl).host;
+  } catch {
+    // A malformed url is its own bug, but not a reason to show nothing.
+  }
+
+  if (outcome.status === 0) {
+    return `Could not reach ${host}. The file never left this device — this is usually the storage host being unreachable or its certificate not trusted, not the file itself.`;
+  }
+
+  return `Storage refused the file (${outcome.status}). ${
+    outcome.body?.slice(0, 160) ?? ""
+  }`.trim();
 }

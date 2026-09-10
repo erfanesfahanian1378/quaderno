@@ -72,6 +72,22 @@ export default function RootLayout({
       className={`${inter.variable} ${sourceSerif.variable} ${jetbrainsMono.variable}`}
     >
       <head>
+        {/*
+          Tell Dark Reader to leave this page alone.
+
+          The extension rewrites every element before React hydrates — it adds
+          `data-darkreader-inline-stroke` and a `--darkreader-inline-stroke`
+          style to each icon — and React then reports a hydration mismatch on
+          markup neither the server nor the client wrote. The stack points at
+          whatever component happened to render first, which here was a nav
+          icon, and no amount of changing that component helps.
+
+          This meta is Dark Reader's own opt-out, and it is the honest signal:
+          the app HAS a dark theme, chosen in Settings and applied by
+          ThemeScript below before first paint. A second one layered on top
+          fights it.
+        */}
+        <meta name="darkreader-lock" />
         <ThemeScript />
       </head>
       <body className="min-h-dvh bg-canvas font-ui text-body text-ink antialiased">
