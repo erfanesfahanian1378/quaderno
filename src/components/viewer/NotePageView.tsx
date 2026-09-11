@@ -57,6 +57,7 @@ export function NotePageView({
             initialContent={content}
             initialUpdatedAt={new Date().toISOString()}
             scale={scale}
+            {...(languageCode ? { languageCode } : {})}
             onContentChange={setContent}
           />
         ) : (

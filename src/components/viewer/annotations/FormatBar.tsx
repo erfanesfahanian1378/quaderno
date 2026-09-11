@@ -34,10 +34,17 @@ const FONT_CSS: Record<TextFont, string> = {
 export function FormatBar({
   onCommand,
   className,
+  spell,
+  onToggleSpell,
+  languageCode,
 }: {
   /** Runs against the editor, which the caller keeps focused. */
   onCommand: (run: () => void) => void;
   className?: string;
+  /** Omit both to render the bar without a spell-check control. */
+  spell?: boolean;
+  onToggleSpell?: () => void;
+  languageCode?: string;
 }) {
   const exec = (command: string, value?: string) =>
     onCommand(() => {
@@ -102,6 +109,42 @@ export function FormatBar({
           {FONT_LABEL[font]}
         </button>
       ))}
+      {onToggleSpell ? (
+        <>
+          <span className="mx-0.5 h-5 w-px bg-hairline" aria-hidden="true" />
+
+          {/*
+            Spell-check, in the bar where the other writing controls are.
+
+            It belongs beside bold and italic rather than in a settings screen
+            because it is a property of THIS piece of writing: a note full of
+            half-learnt spellings wants it on, a list of proper nouns does not.
+          */}
+          <button
+            type="button"
+            aria-pressed={spell}
+            title={
+              spell
+                ? `Spell-check on${languageCode ? ` (${languageCode})` : ""}`
+                : "Spell-check off"
+            }
+            onMouseDown={(event) => {
+              // Same reason as every other button here: onClick fires after
+              // focus has left and the selection is gone.
+              event.preventDefault();
+              onToggleSpell();
+            }}
+            className={cn(
+              "grid h-7 min-w-7 place-items-center rounded-sm px-1.5 text-caption transition-colors duration-[120ms]",
+              spell
+                ? "bg-accent-soft text-accent-on-soft"
+                : "text-ink-3 hover:bg-subtle hover:text-ink",
+            )}
+          >
+            ABC
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,9 +1,17 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import type { InkKey } from "@/lib/tokens";
 import { cn } from "@/lib/cn";
 import { FormatBar } from "./FormatBar";
+
+const SPELL_KEY = "quaderno:note-spellcheck";
 import {
   buildColorMap,
   readSpansFromDom,
@@ -107,9 +115,11 @@ export const InlineComposer = forwardRef<
   InlineComposerHandle,
   {
     color: InkKey;
+    /** The document's language, so spell-check uses the right dictionary. */
+    languageCode?: string;
     onCommit: (result: ComposerResult) => void;
   }
->(function InlineComposer({ color, onCommit }, ref) {
+>(function InlineComposer({ color, languageCode, onCommit }, ref) {
   /*
    * A contenteditable rather than a textarea, so bold, italic, underline,
    * colour and font can apply to a SELECTION. A textarea has one style for
@@ -121,6 +131,23 @@ export const InlineComposer = forwardRef<
   const editorRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<Position | null>(null);
   const [empty, setEmpty] = useState(true);
+
+  /*
+   * Spell-check, remembered across composers.
+   *
+   * `lang` is what makes it worth having: without it the field
+   * inherits the page's English and underlines every Italian word on
+   * the sheet, which is worse than no checking at all.
+   */
+  const [spell, setSpell] = useState(true);
+
+  useEffect(() => {
+    try {
+      setSpell(window.localStorage.getItem(SPELL_KEY) !== "off");
+    } catch {
+      // Storage blocked. On is the right default either way.
+    }
+  }, []);
   const [fontSize, setFontSize] = useState<number>(DEFAULT_TEXT_SIZE);
   const positionRef = useRef<Position | null>(null);
   const fontSizeRef = useRef<number>(DEFAULT_TEXT_SIZE);
@@ -294,6 +321,8 @@ export const InlineComposer = forwardRef<
         <div
           ref={editorRef}
           contentEditable
+          spellCheck={spell}
+          {...(languageCode ? { lang: languageCode } : {})}
           suppressContentEditableWarning
           role="textbox"
           aria-multiline="true"
@@ -424,6 +453,28 @@ export const InlineComposer = forwardRef<
         {active ? (
           <FormatBar
             className="mt-2 border-t border-hairline pt-2"
+            spell={spell}
+            {...(languageCode ? { languageCode } : {})}
+            onToggleSpell={() => {
+              setSpell((on) => {
+                try {
+                  window.localStorage.setItem(SPELL_KEY, on ? "off" : "on");
+                } catch {
+                  // Not worth failing a keystroke over.
+                }
+                return !on;
+              });
+              /*
+               * Chrome only re-runs the checker when the field is re-focused,
+               * so turning it on mid-sentence otherwise does nothing until the
+               * next click — which reads as a broken button.
+               */
+              const field = editorRef.current;
+              if (field) {
+                field.blur();
+                window.setTimeout(() => field.focus(), 0);
+              }
+            }}
             onCommand={(run) => {
               // Keep the caret where it was: the toolbar buttons already
               // prevent the mousedown default, and this re-asserts focus for

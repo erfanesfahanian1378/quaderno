@@ -773,6 +773,7 @@ export function Viewer({
       <InlineComposer
         ref={composerRef}
         color={inkColor}
+        languageCode={doc.languageCode}
         onCommit={onComposerCommit}
       />
 
