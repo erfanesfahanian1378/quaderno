@@ -70,7 +70,7 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
   "source-file.forJob": "worker: ingest",
   "source-file.findByChecksumForUser": "takes an explicit userId argument",
   "leaf.createSourcePages": "worker: ingest",
-  "leaf.setLeafCount": "worker: ingest",
+  "leaf.recountLeaves": "worker: ingest; counts one document's own leaves",
   "leaf.firstLeafId": "worker: ingest",
   "study.closeStaleTimers": "worker: the reaper sweeps every user by design",
   "source-file.applyOcr": "worker: ocr",

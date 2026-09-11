@@ -10,6 +10,7 @@ import { LibraryFilters } from "@/components/library/LibraryFilters";
 import { FolderBar } from "@/components/library/FolderBar";
 import { NewNotebook } from "@/components/library/NewNotebook";
 import { RestoreButton } from "@/components/library/RestoreButton";
+import { StuckNotice } from "@/components/library/StuckNotice";
 import {
   DocumentMenu,
   type MoveTarget,
@@ -215,6 +216,12 @@ export default async function LibraryPage({
                       />
                     )}
                   </div>
+
+                  <StuckNotice
+                    documentId={document.id}
+                    status={document.status}
+                    updatedAt={document.updatedAt.toISOString()}
+                  />
                 </div>
               </li>
             );

@@ -107,12 +107,31 @@ export async function neighbours(
   };
 }
 
-/** Bulk create, used by ingest: one SOURCE_PAGE leaf per PDF page. */
+/**
+ * Bulk create, used by ingest: one SOURCE_PAGE leaf per PDF page.
+ *
+ * **Idempotent, and it has to be.** Positions are fixed at 1..N, so running
+ * this twice against the same document violates the unique key on
+ * (documentId, position) — and ingest is retried: pg-boss gives it three
+ * attempts, and a person can ask for a retry when a conversion has stalled.
+ * Before this returned early, the second attempt failed with P2002 and left
+ * the document FAILED, which looks like a broken file rather than a job that
+ * had in fact already done this part.
+ *
+ * Existing pages are LEFT ALONE rather than replaced. Deleting and recreating
+ * them would cascade to every annotation on them — a retry is meant to
+ * recover a document, not to quietly wipe someone's highlights off it.
+ */
 export async function createSourcePages(
   documentId: string,
   sourceFileId: string,
   pageCount: number,
 ): Promise<number> {
+  const existing = await prisma.leaf.count({
+    where: { documentId, kind: "SOURCE_PAGE" as const },
+  });
+  if (existing > 0) return existing;
+
   const result = await prisma.leaf.createMany({
     data: Array.from({ length: pageCount }, (_, index) => ({
       documentId,
@@ -218,14 +237,33 @@ export async function hide(ctx: Ctx, id: string): Promise<boolean> {
   return true;
 }
 
-export async function setLeafCount(
-  documentId: string,
-  count: number,
-): Promise<void> {
+/**
+ * Recompute `leafCount` from what is actually there.
+ *
+ * It took a NUMBER before, and ingest passed the page count it had just
+ * created. That is right exactly once — at first ingest, when the source
+ * pages are all there is. On a retry of a document that has since gained note
+ * pages, or had one hidden, it overwrites a correct count with a smaller one
+ * and the library starts under-reporting the document.
+ *
+ * The counter is denormalised and maintained incrementally elsewhere
+ * (+1 when a note page is added, -1 when a leaf is hidden), so it can drift.
+ * Recounting here means a retry repairs it rather than corrupting it.
+ *
+ * Hidden leaves are excluded, which is what the rest of the app means by a
+ * page count: `listForDocument` hides them, and the viewer never shows them.
+ */
+export async function recountLeaves(documentId: string): Promise<number> {
+  const count = await prisma.leaf.count({
+    where: { documentId, hidden: false },
+  });
+
   await prisma.document.update({
     where: { id: documentId },
     data: { leafCount: count },
   });
+
+  return count;
 }
 
 export async function firstLeafId(documentId: string): Promise<string | null> {

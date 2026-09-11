@@ -127,12 +127,12 @@ export async function ingest(payload: IngestPayload): Promise<void> {
 
     // One SOURCE_PAGE leaf per PDF page, then READY — in that order, so a
     // client that sees READY always finds pages behind it.
-    const created = await leaves.createSourcePages(
-      documentId,
-      sourceFileId,
-      probe.pageCount,
-    );
-    await leaves.setLeafCount(documentId, created);
+    await leaves.createSourcePages(documentId, sourceFileId, probe.pageCount);
+
+    // Recounted, not assumed: on a retry the document may already carry note
+    // pages that the number of source pages knows nothing about, and one of
+    // them may be hidden. See recountLeaves.
+    await leaves.recountLeaves(documentId);
 
     await renderThumbnail(outcome.pdf, userId, documentId, log);
 

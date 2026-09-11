@@ -72,6 +72,16 @@ afterAll(async () => {
   await prisma.user.deleteMany({
     where: { email: { in: [EMAIL, `other-${EMAIL}`] } },
   });
+  /*
+   * Disconnect, and it matters more than it looks.
+   *
+   * Vitest gives each spec file its own module registry and therefore its own
+   * Prisma client, and `DATABASE_URL` carries connection_limit=8. Three
+   * integration files that do not release their pools, alongside a dev server
+   * and a worker, exhaust Postgres — and the symptom is not an error in the
+   * file that caused it: `databaseReachable()` starts returning false and
+   * later specs SKIP, which reads as green.
+   */
   await prisma.$disconnect();
 });
 
