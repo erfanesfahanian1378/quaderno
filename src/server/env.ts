@@ -59,6 +59,19 @@ const serverSchema = z.object({
   MAX_UPLOAD_BYTES: z.coerce.number().int().default(157_286_400),
 
   /*
+   * Translation.
+   *
+   * TRANSLATE_URL points at a self-hosted LibreTranslate and is tried first
+   * when set — the only arrangement where the text never leaves the machine.
+   * Without it, translation falls back to free public services, which means
+   * the highlighted text is sent to a third party. That is a real trade and
+   * the setting is how someone opts out of it.
+   */
+  TRANSLATE_URL: z.string().url().optional(),
+  TRANSLATE_API_KEY: z.string().optional(),
+  LINGVA_URL: z.string().url().default("https://lingva.ml"),
+
+  /*
    * Web Push. All three optional together: without them reminders are simply
    * off, the settings page says so, and nothing else changes. A half-set
    * configuration is the dangerous case, so the service checks all three

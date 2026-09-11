@@ -934,3 +934,34 @@ model Deck {
 
   @@index([userId, languageId])
 }
+
+/**
+ * A cached translation.
+ * Shared rather than per-user, and that is the whole point: "la finestra"
+ * means the same thing for everyone, so the second person to look it up pays
+ * nothing. It also makes the free providers viable — they rate-limit hard,
+ * and a cache turns a class's worth of lookups into a handful of requests.
+ * Only SHORT text is cached (see the service). A cached sentence out of
+ * someone's private notes would be a different kind of record from a cached
+ * dictionary word, and the length cap is what keeps this to the latter.
+ */
+model Translation {
+  id String @id @default(cuid())
+
+  sourceLang String
+  targetLang String
+  /**
+   * Normalised — trimmed and lowercased — so casing never splits the cache.
+   */
+  sourceText String
+  translated String
+  /**
+   * Which provider answered, so a bad one can be found and purged.
+   */
+  provider   String
+
+  createdAt DateTime @default(now())
+
+  @@unique([sourceLang, targetLang, sourceText])
+  @@index([createdAt])
+}

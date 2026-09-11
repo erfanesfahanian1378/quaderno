@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useSpeech } from "@/lib/speech";
+import { useTranslation } from "@/lib/translate";
 import { VoicePicker } from "@/components/speech/VoicePicker";
 
 /**
- * Read-aloud, for practising pronunciation.
+ * Read-aloud and what it means, in one panel.
  *
  * Uses the browser's own speech synthesis: no dependency, no API key, no
  * per-request cost, and it works on a phone in a classroom with bad wifi. The
@@ -16,6 +17,12 @@ import { VoicePicker } from "@/components/speech/VoicePicker";
  * It picks a voice matching the language you are studying rather than the
  * device default, because a French word read by an English voice is worse
  * than useless for accent practice — it teaches the wrong thing.
+ *
+ * The MEANING sits in the same panel rather than in one of its own, because
+ * the two questions arrive together: nobody wonders how to say a word they
+ * already understand, or what a word means without also wanting to say it.
+ * Translation goes through the server, which caches every answer — see
+ * src/server/services/translate.
  */
 
 const RATES = [
@@ -39,6 +46,10 @@ export function PronouncePanel({
   const [text, setText] = useState(initialText);
   const [rate, setRate] = useState(0.8);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Only while the panel is open: a closed panel that keeps translating is
+  // spending a shared rate limit on a question nobody asked.
+  const meaning = useTranslation(text, languageCode, open);
 
   // Voice picking, the utterance lifecycle and the cancel-before-speak rule
   // all live in the hook — the review card needs exactly the same behaviour.
@@ -102,6 +113,24 @@ export function PronouncePanel({
             >
               <SpeakerIcon speaking={speaking} />
             </button>
+          </div>
+
+          {/*
+            Reserved height, so the panel does not jump when an answer lands.
+            It sits over a document someone is reading; a control that moves
+            under the thumb is worse than one that waits.
+          */}
+          <div className="mt-2 min-h-[22px]">
+            {meaning.status === "loading" ? (
+              <p className="text-body-sm text-ink-3">Looking it up…</p>
+            ) : meaning.status === "done" ? (
+              <p className="text-body-sm text-ink">
+                <span className="text-ink-3">means </span>
+                {meaning.text}
+              </p>
+            ) : meaning.status === "error" ? (
+              <p className="text-caption text-ink-3">{meaning.message}</p>
+            ) : null}
           </div>
 
           <div className="mt-2 flex items-center gap-1">

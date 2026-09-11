@@ -84,6 +84,49 @@ services:
       echo 'bucket ready';
       "
 
+  # --------------------------------------------------------------------------
+  # Translation, entirely on this machine.
+  #
+  #   docker compose --profile translate up -d
+  #   TRANSLATE_URL=http://localhost:5050   # in .env
+  #
+  # Its own profile, and off by default, because it is the one service here
+  # with a real appetite: the models want roughly a gigabyte of RAM, which on a
+  # small server is most of what there is. Without it, translation falls back
+  # to free public services — which works, costs nothing, and means the text
+  # someone highlighted in their own notes is sent to a third party. This is
+  # how you opt out of that.
+  #
+  # LT_LOAD_ONLY keeps it to the pairs actually studied. Downloading every
+  # language Argos supports is several gigabytes for no benefit.
+  # --------------------------------------------------------------------------
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    profiles: ["translate"]
+    restart: unless-stopped
+    ports:
+      - "5050:5000"
+    environment:
+      LT_LOAD_ONLY: "en,it,fr"
+      LT_DISABLE_WEB_UI: "true"
+      # No key: it is bound to this machine and reachable by nothing else.
+      LT_API_KEYS: "false"
+    volumes:
+      - libretranslate-models:/home/libretranslate/.local/share/argos-translate
+    healthcheck:
+      # The models download on first boot, which takes minutes — the start
+      # period is long so the container is not killed while doing it.
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request;urllib.request.urlopen(''http://localhost:5000/languages'')" || exit 1',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
 volumes:
   db-data:
   minio-data:
+  libretranslate-models:
