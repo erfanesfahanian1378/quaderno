@@ -10,7 +10,7 @@ export function LibraryFilters({
   active,
 }: {
   languages: { id: string; name: string; accentKey: string }[];
-  active: { languageId?: string; q?: string; starred?: string };
+  active: { languageId?: string; q?: string; starred?: string; trash?: string };
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -85,6 +85,44 @@ export function LibraryFilters({
         <StarIcon className="size-4" filled={active.starred === "1"} />
         Starred
       </button>
+
+      {/*
+        Trash, next to Starred rather than hidden in a menu.
+
+        A thirty-day window is only a safety net if the person who deleted
+        something by accident can find it without being told where to look.
+      */}
+      <button
+        type="button"
+        onClick={() => setParam("trash", active.trash === "1" ? null : "1")}
+        aria-pressed={active.trash === "1"}
+        className={cn(
+          "flex h-10 items-center gap-2 rounded-sm px-3 text-label transition-colors duration-[120ms]",
+          active.trash === "1"
+            ? "bg-subtle text-ink"
+            : "text-ink-2 hover:bg-subtle",
+        )}
+      >
+        <TrashIcon className="size-4" />
+        Trash
+      </button>
     </div>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16M9 7V5h6v2M7 7l1 12h8l1-12" />
+    </svg>
   );
 }

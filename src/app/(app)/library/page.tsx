@@ -9,6 +9,7 @@ import { DocumentThumb } from "@/components/library/DocumentThumb";
 import { LibraryFilters } from "@/components/library/LibraryFilters";
 import { FolderBar } from "@/components/library/FolderBar";
 import { NewNotebook } from "@/components/library/NewNotebook";
+import { RestoreButton } from "@/components/library/RestoreButton";
 import {
   DocumentMenu,
   type MoveTarget,
@@ -32,6 +33,7 @@ export default async function LibraryPage({
     folderId?: string;
     q?: string;
     starred?: string;
+    trash?: string;
   }>;
 }) {
   const ctx = await requireUserPage("/library");
@@ -73,12 +75,22 @@ export default async function LibraryPage({
       classSessionId: params.classSessionId,
       query: params.q,
       starred: params.starred === "1" ? true : undefined,
+      deleted: params.trash === "1" ? true : undefined,
       /*
        * Searching looks through the whole language, not just this folder.
        * Someone typing a word is looking for a document, not for a document
        * that happens to be filed where they are standing.
        */
-      ...(params.q ? {} : { folderId: current?.id ?? null }),
+      /*
+       * The trash is flat, and deliberately.
+       *
+       * A deleted document keeps its folderId, but the folder may itself be
+       * gone — and someone looking for what they threw away is not looking
+       * for where it used to be filed.
+       */
+      ...(params.q || params.trash === "1"
+        ? {}
+        : { folderId: current?.id ?? null }),
     },
     { limit: 50 },
   );
@@ -98,41 +110,63 @@ export default async function LibraryPage({
 
       <LibraryFilters languages={list} active={params} />
 
-      <FolderBar
-        languageId={activeLanguageId}
-        path={path.map((node) => ({ id: node.id, name: node.name }))}
-        folders={visibleFolders.map((node) => ({
-          id: node.id,
-          name: node.name,
-          documentCount: node.documentCount,
-        }))}
-        childCounts={Object.fromEntries(
-          visibleFolders.map((node) => [node.id, node.children.length]),
-        )}
-      />
+      {/*
+        Folders, the new-page button and the dropzone are all about ADDING,
+        and none of them belong over a list of things you have thrown away.
+        The trash is one flat list and a way out of it.
+      */}
+      {params.trash === "1" ? (
+        <p className="text-body-sm text-ink-2">
+          Deleted documents stay here for 30 days, then go for good. Restoring
+          one puts it back where it was.
+        </p>
+      ) : (
+        <>
+          <FolderBar
+            languageId={activeLanguageId}
+            path={path.map((node) => ({ id: node.id, name: node.name }))}
+            folders={visibleFolders.map((node) => ({
+              id: node.id,
+              name: node.name,
+              documentCount: node.documentCount,
+            }))}
+            childCounts={Object.fromEntries(
+              visibleFolders.map((node) => [node.id, node.children.length]),
+            )}
+          />
 
-      <div className="flex flex-wrap items-start gap-2">
-        <NewNotebook
-          languageId={activeLanguageId}
-          folderId={current?.id ?? null}
-        />
-      </div>
+          <div className="flex flex-wrap items-start gap-2">
+            <NewNotebook
+              languageId={activeLanguageId}
+              folderId={current?.id ?? null}
+            />
+          </div>
 
-      <Dropzone
-        languageId={activeLanguageId}
-        maxBytes={env().MAX_UPLOAD_BYTES}
-        {...(params.classSessionId
-          ? { classSessionId: params.classSessionId }
-          : {})}
-      />
+          <Dropzone
+            languageId={activeLanguageId}
+            maxBytes={env().MAX_UPLOAD_BYTES}
+            {...(params.classSessionId
+              ? { classSessionId: params.classSessionId }
+              : {})}
+          />
+        </>
+      )}
 
       {page.items.length === 0 ? (
         <EmptyState
-          title={params.q ? "Nothing matched that" : "No documents yet"}
+          title={
+            params.trash === "1"
+              ? "Nothing in the trash"
+              : params.q
+                ? "Nothing matched that"
+                : "No documents yet"
+          }
           description={
-            params.q
-              ? "Try a shorter search, or a word from the title."
-              : "Upload a handout above. Word files and photos become PDFs you can highlight, draw on and write between."
+            params.trash === "1"
+              ? "Deleted documents wait here for 30 days before they go for good."
+              : params.q
+                ? "Try a shorter search, or a word from the title."
+                : "Upload a handout above. Word files and photos become PDFs you can highlight, draw on and write between."
           }
         />
       ) : (
@@ -165,12 +199,21 @@ export default async function LibraryPage({
                       </p>
                     </Link>
 
-                    <DocumentMenu
-                      documentId={document.id}
-                      title={document.title}
-                      folderId={document.folderId}
-                      targets={moveTargets}
-                    />
+                    {/*
+                      In the trash a tile offers exactly one thing. Rename,
+                      move and star are all meaningless for something thrown
+                      away.
+                    */}
+                    {params.trash === "1" ? (
+                      <RestoreButton documentId={document.id} />
+                    ) : (
+                      <DocumentMenu
+                        documentId={document.id}
+                        title={document.title}
+                        folderId={document.folderId}
+                        targets={moveTargets}
+                      />
+                    )}
                   </div>
                 </div>
               </li>

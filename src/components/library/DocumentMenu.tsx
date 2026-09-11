@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 export type MoveTarget = { id: string | null; label: string; depth: number };
 
 /**
- * Rename and move, on the document tile.
+ * Rename, move and delete, on the document tile.
  *
  * Renaming is inline rather than a dialog: the title is right there, and a
  * modal to change one word is more ceremony than the act deserves. The input
@@ -33,6 +33,7 @@ export function DocumentMenu({
   const [value, setValue] = useState(title);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const patch = async (body: Record<string, unknown>) => {
     setBusy(true);
@@ -46,6 +47,32 @@ export function DocumentMenu({
     }
     router.refresh();
     return true;
+  };
+
+  /*
+   * Delete is a SOFT delete, and the confirm says so rather than warning.
+   *
+   * The server has always kept the row for thirty days — the point was that
+   * nothing could reach it, so the delete was permanent to the person doing
+   * it. Undo lives in the Trash view rather than in a toast here: this menu
+   * unmounts the moment the tile it belongs to is refreshed away, which is
+   * exactly when an undo would be wanted.
+   */
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+
+    const result = await api.delete(`/api/documents/${documentId}`);
+    setBusy(false);
+
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+
+    setOpen(false);
+    setConfirming(false);
+    router.refresh();
   };
 
   const rename = async () => {
@@ -164,6 +191,52 @@ export function DocumentMenu({
                 ) : null}
               </button>
             ))}
+
+            <div className="my-1 h-px bg-hairline" />
+
+            {confirming ? (
+              <div className="px-3 py-2">
+                <p className="text-caption text-ink-2">
+                  Goes to the trash, where you can put it back for 30 days.
+                </p>
+                <div className="mt-1.5 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void remove();
+                    }}
+                    className="rounded-sm bg-danger px-2 py-1 text-caption text-on-danger disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setConfirming(false);
+                    }}
+                    className="rounded-sm px-2 py-1 text-caption text-ink-2 hover:bg-subtle"
+                  >
+                    Keep
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={busy}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setConfirming(true);
+                }}
+                className="w-full rounded-sm px-3 py-2 text-left text-label text-danger hover:bg-danger-soft disabled:opacity-40"
+              >
+                Delete
+              </button>
+            )}
 
             {error ? (
               <p className="px-3 py-2 text-caption text-danger">{error}</p>

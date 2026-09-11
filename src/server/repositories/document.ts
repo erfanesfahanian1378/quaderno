@@ -61,6 +61,14 @@ export type ListFilter = {
   query?: string | undefined;
   /** `null` is the language's top level; `undefined` is every folder. */
   folderId?: string | null | undefined;
+  /**
+   * Show the trash instead of the library.
+   *
+   * Deliberately not a tri-state. There is no view that wants live and
+   * deleted documents mixed together — a trash list that also contains
+   * everything you still have is not a trash list.
+   */
+  deleted?: boolean | undefined;
 };
 
 export async function list(
@@ -79,7 +87,7 @@ export async function list(
   const rows = await prisma.document.findMany({
     where: {
       userId: ctx.userId,
-      deletedAt: null,
+      ...(filter.deleted ? { deletedAt: { not: null } } : { deletedAt: null }),
       ...(filter.languageId ? { languageId: filter.languageId } : {}),
       ...(filter.courseId ? { courseId: filter.courseId } : {}),
       ...(filter.classSessionId
