@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { GoogleButton, OrDivider } from "@/components/auth/GoogleButton";
+import { googleEnabled } from "@/server/auth/config";
 import { redirect } from "next/navigation";
 import { currentUserId } from "@/server/auth/guards";
 import { SignUpForm } from "./SignUpForm";
@@ -14,6 +16,13 @@ export default async function SignUpPage() {
       <p className="mt-2 text-body text-ink-2">
         One place for your handouts, your notes and your hours.
       </p>
+
+      {googleEnabled() ? (
+        <div className="mt-6 flex flex-col gap-4">
+          <GoogleButton next="/onboarding" label="Sign up with Google" />
+          <OrDivider />
+        </div>
+      ) : null}
 
       <SignUpForm />
 

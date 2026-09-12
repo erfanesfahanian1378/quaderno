@@ -126,6 +126,11 @@ export function Sidebar({
         <SettingsIcon />
         Settings
       </NavLink>
+
+      <NavLink href="/guide" active={pathname.startsWith("/guide")}>
+        <HelpIcon />
+        Setup
+      </NavLink>
     </nav>
   );
 }
@@ -152,5 +157,25 @@ function NavLink({
     >
       {children}
     </Link>
+  );
+}
+
+/** A question mark in a circle. Setup, not settings. */
+function HelpIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.2a2.5 2.5 0 1 1 3.2 2.9c-.5.2-.8.7-.8 1.2v.4" />
+      <path d="M12 17h.01" />
+    </svg>
   );
 }

@@ -67,6 +67,14 @@ const serverSchema = z.object({
    * the highlighted text is sent to a third party. That is a real trade and
    * the setting is how someone opts out of it.
    */
+  /*
+   * Google sign-in. Optional, and optional TOGETHER — a client id without a
+   * secret is a half-configured provider that fails at the redirect rather
+   * than at boot, which is the worst place to find out.
+   */
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+
   TRANSLATE_URL: z.string().url().optional(),
   TRANSLATE_API_KEY: z.string().optional(),
   LINGVA_URL: z.string().url().default("https://lingva.ml"),

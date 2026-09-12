@@ -80,8 +80,11 @@ export function OfflineStorage() {
         <Banner tone="warning">
           Offline access needs a secure connection. This page is on plain
           <code className="mx-1 rounded-xs bg-inset px-1">http://</code>, where
-          browsers switch the feature off entirely. It works on the deployed
-          site, and locally over <code>https://</code>.
+          browsers switch the feature off entirely.{" "}
+          <a href="/guide" className="underline underline-offset-2">
+            How to fix it on this device
+          </a>
+          .
         </Banner>
       </Card>
     );
