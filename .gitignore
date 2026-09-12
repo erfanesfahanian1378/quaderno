@@ -20,11 +20,19 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 
-# env — .env.example IS committed, .env is not
+# env — the .example files ARE committed, the real ones are not.
+#
+# `.env.prod` is called out explicitly: the earlier patterns did not match it,
+# and it holds the production database password, the S3 secret and AUTH_SECRET.
+# A deploy file that silently falls outside the ignore rules is exactly the
+# shape of accident that puts credentials in a public repository.
 .env
 .env.local
 .env.*.local
+.env.prod
+.env.production
 !.env.example
+!.env.prod.example
 
 # misc
 .DS_Store

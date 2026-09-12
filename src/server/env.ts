@@ -107,7 +107,22 @@ let cached: ServerEnv | null = null;
 export function env(): ServerEnv {
   if (cached) return cached;
 
-  const parsed = serverSchema.safeParse(process.env);
+  /*
+   * A blank value means UNSET.
+   *
+   * `.optional()` accepts `undefined`, not `""` — so `TRANSLATE_URL=""` in an
+   * env file is a present value that fails `.url()`, and the whole app refuses
+   * to boot over a setting nobody asked for. Env files are full of blank
+   * placeholders; treating them as absent is what everyone already assumes,
+   * and it is the difference between a deploy that starts and one that
+   * crash-loops on a commented-out feature.
+   */
+  const present: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && value !== "") present[key] = value;
+  }
+
+  const parsed = serverSchema.safeParse(present);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((issue) => `  ${issue.path.join(".")}: ${issue.message}`)

@@ -1,0 +1,154 @@
+# Production stack. One command, five containers.
+#
+#   docker compose -f compose.prod.yml up -d --build
+#
+# Caddy terminates TLS and gets a real Let's Encrypt certificate on its own,
+# which is the point at which every mkcert instruction in the Setup guide stops
+# applying: a public certificate needs nothing installed on the phone.
+#
+# Only Caddy publishes ports. Postgres, MinIO and the app are reachable on the
+# compose network and from nowhere else — on a cloud box with a public IP,
+# binding Postgres to 0.0.0.0 is how a database ends up mining cryptocurrency.
+
+name: quaderno
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-quaderno}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: ${POSTGRES_DB:-quaderno}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quaderno}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in .env.prod}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in .env.prod}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Creates the bucket, then exits. `depends_on: service_completed_successfully`
+  # is what stops the app starting against a bucket that is not there yet.
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 '${S3_ACCESS_KEY_ID}' '${S3_SECRET_ACCESS_KEY}' &&
+      mc mb --ignore-existing local/${S3_BUCKET:-quaderno} &&
+      echo 'bucket ready';
+      "
+
+  # Migrations run here and nowhere else.
+  #
+  # Not in the web container's entrypoint: with more than one replica that is a
+  # race, and even with one it means a failed migration looks like a crash-loop
+  # rather than a migration that failed. This exits, and web waits for it.
+  migrate:
+    build:
+      context: .
+      target: runtime
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quaderno}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-quaderno}?schema=public
+    command: ["npx", "prisma", "migrate", "deploy"]
+
+  web:
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      createbuckets:
+        condition: service_completed_successfully
+    env_file: .env.prod
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quaderno}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-quaderno}?schema=public&connection_limit=8
+      QUEUE_DATABASE_URL: postgresql://${POSTGRES_USER:-quaderno}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-quaderno}?schema=pgboss
+      # Inside the network for the app's own reads and writes …
+      S3_ENDPOINT: http://minio:9000
+      # … and the public name for presigned URLs, because those are handed to a
+      # browser. SigV4 signs the Host header, so this must be the address the
+      # browser actually uses — a mismatch is a 403 that reads as a broken file.
+      S3_PUBLIC_ENDPOINT: https://${DOMAIN:?set DOMAIN in .env.prod}/s3
+      AUTH_URL: https://${DOMAIN}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file: .env.prod
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quaderno}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-quaderno}?schema=public&connection_limit=4
+      QUEUE_DATABASE_URL: postgresql://${POSTGRES_USER:-quaderno}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-quaderno}?schema=pgboss
+      S3_ENDPOINT: http://minio:9000
+    command: ["npx", "tsx", "worker/index.ts"]
+    # LibreOffice can take a lot of memory on a bad file. On a 12 GB box that
+    # is survivable; the cap is here so it cannot take the database with it.
+    mem_limit: 3g
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env.prod}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  minio-data:
+  caddy-data:
+  caddy-config:

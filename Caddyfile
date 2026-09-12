@@ -1,0 +1,69 @@
+# Caddy: TLS, and the two things behind it.
+#
+# The certificate is obtained and renewed automatically from Let's Encrypt on
+# first request — no certbot, no cron, no renewal that expires while nobody is
+# looking. That is also the moment the whole mkcert story in the Setup guide
+# becomes unnecessary: a public certificate is already trusted everywhere, so
+# offline reading, reminders and recording work on a phone with nothing
+# installed on it.
+
+{
+	email {$ACME_EMAIL}
+
+	# Smaller than Caddy's default. This is a single-tenant app on a shared
+	# box; a gigabyte of buffered request bodies is not a good trade.
+	servers {
+		max_header_size 16KB
+	}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# ---------------------------------------------------------------------
+	# Object storage, on the app's own domain.
+	#
+	# Presigned URLs are handed to a browser, so the host in them has to be
+	# reachable from the browser — MinIO on the compose network is not. It
+	# could be published on its own port instead, but that means a second
+	# certificate, a second DNS name, and CORS between them.
+	#
+	# The rewrite strips /s3 before MinIO sees it, and S3_PUBLIC_ENDPOINT is
+	# set to https://DOMAIN/s3 so the signature is computed over exactly the
+	# path and host the browser will send. SigV4 signs both; getting either
+	# wrong is a 403 SignatureDoesNotMatch that looks like a corrupt file.
+	# ---------------------------------------------------------------------
+	handle_path /s3/* {
+		reverse_proxy minio:9000 {
+			# MinIO validates the signature against the Host it receives, so
+			# it must see the public name rather than "minio:9000".
+			header_up Host {upstream_hostport}
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	# A 150 MB upload is a normal thing here, and Caddy's default body limit
+	# would refuse it with a 413 that the uploader reports as a failed
+	# connection.
+	request_body {
+		max_size 200MB
+	}
+
+	header {
+		# HSTS only once the domain is known good — a wrong redirect pinned
+		# for a year is not recoverable from by editing a config.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

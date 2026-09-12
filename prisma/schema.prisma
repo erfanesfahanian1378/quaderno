@@ -4,6 +4,19 @@
 
 generator client {
   provider = "prisma-client-js"
+
+  // The query engine is a NATIVE binary chosen per platform, and "native"
+  // alone means whatever machine ran `prisma generate`.
+  //
+  // The deployment target is arm64 on Debian bookworm, which ships openssl 3.
+  // Without this list the container starts, connects to nothing and dies with
+  // "could not locate the Query Engine for runtime linux-arm64-openssl-3.0.x"
+  // — which reads as an architecture problem and is really a missing download.
+  // The x86 target is here too, so an image built on a laptop still runs.
+  //
+  // Only `//` comments are legal inside a generator block; a /* */ one fails
+  // validation with "This line is not a valid definition within a generator".
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
